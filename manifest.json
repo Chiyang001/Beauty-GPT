@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "Beauty-GPT",
+  "version": "1.1.0",
+  "description": "为 ChatGPT 网页端更换精美主题，支持预设与自定义配色。",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Beauty-GPT",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "src/theme-engine.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/styles/inject.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/styles/panel.css",
+        "src/themes.json",
+        "src/bg-player.html",
+        "src/bg-player.js",
+        "icons/*",
+        "assets/logo.png",
+        "assets/github.svg",
+        "assets/bilibili-color.svg",
+        "assets/themes/*"
+      ],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beauty-GPT</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="header">
+        <img class="logo" src="../../icons/logo.png" alt="Beauty-GPT" width="36" height="36" />
+        <div>
+          <h1>Beauty-GPT</h1>
+          <p class="tagline">ChatGPT 主题美化</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="label">当前主题</div>
+        <div id="theme-name" class="theme-name">加载中…</div>
+        <p id="theme-desc" class="theme-desc"></p>
+      </section>
+
+      <p class="hint">
+        打开 ChatGPT 后，点击页面右下角的 Beauty-GPT 浮动按钮即可切换预设或自定义配色。
+      </p>
+
+      <a
+        class="cta"
+        href="https://chatgpt.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        打开 ChatGPT
+      </a>
+    </main>
+    <script src="../theme-engine.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

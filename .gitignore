@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs & caches
+*.log
+.cache/
+node_modules/
+
+# Local secrets / env
+.env
+.env.*
+*.pem
+
+# Chrome extension packaging
+*.crx
+*.pem
+*.zip
+dist/
+build/

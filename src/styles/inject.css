@@ -1,0 +1,4 @@
+/* Beauty-GPT base inject — host markers only; theme rules come from JS */
+html.beauty-gpt-active {
+  scroll-behavior: smooth;
+}

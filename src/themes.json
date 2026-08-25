@@ -1,0 +1,149 @@
+{
+  "default": {
+    "id": "default",
+    "name": "默认",
+    "description": "恢复 ChatGPT 原貌",
+    "preview": ["#ffffff", "#f7f7f8", "#10a37f"],
+    "vars": null
+  },
+  "midnight": {
+    "id": "midnight",
+    "name": "午夜",
+    "description": "深黑 + 冷蓝强调",
+    "preview": ["#0f1726", "#172033", "#5b8cff"],
+    "bgImage": "assets/themes/midnight.png",
+    "vars": {
+      "bgPrimary": "#0f1726",
+      "bgSecondary": "#172033",
+      "bgSidebar": "#152038",
+      "textPrimary": "#e8eefc",
+      "textSecondary": "#9aabc8",
+      "accent": "#5b8cff",
+      "accentHover": "#7aa3ff",
+      "border": "#2a3a55",
+      "inputBg": "#1a2740",
+      "bubbleUser": "#223656",
+      "bubbleAssistant": "#172033"
+    }
+  },
+  "sakura": {
+    "id": "sakura",
+    "name": "樱花",
+    "description": "浅粉白 + 樱红",
+    "preview": ["#fff5f8", "#ffe8ef", "#e85d8e"],
+    "bgImage": "assets/themes/sakura.png",
+    "vars": {
+      "bgPrimary": "#fff5f8",
+      "bgSecondary": "#ffe8ef",
+      "bgSidebar": "#ffd6e4",
+      "textPrimary": "#4a2c38",
+      "textSecondary": "#8a5a6c",
+      "accent": "#e85d8e",
+      "accentHover": "#d4487a",
+      "border": "#f2c4d4",
+      "inputBg": "#fff8fb",
+      "bubbleUser": "#ffd0e0",
+      "bubbleAssistant": "#fff0f5"
+    }
+  },
+  "cyber": {
+    "id": "cyber",
+    "name": "赛博",
+    "description": "近黑 + 霓虹青/品红",
+    "preview": ["#0a0a0f", "#12121a", "#00f0ff"],
+    "bgImage": "assets/themes/cyber.png",
+    "vars": {
+      "bgPrimary": "#0a0a0f",
+      "bgSecondary": "#12121a",
+      "bgSidebar": "#050508",
+      "textPrimary": "#e6f9ff",
+      "textSecondary": "#8aa0b8",
+      "accent": "#00f0ff",
+      "accentHover": "#ff2bd6",
+      "border": "#1f2a3a",
+      "inputBg": "#141420",
+      "bubbleUser": "#0d2a30",
+      "bubbleAssistant": "#161622"
+    }
+  },
+  "forest": {
+    "id": "forest",
+    "name": "森林",
+    "description": "墨绿底 + 苔绿强调",
+    "preview": ["#14261c", "#1b3226", "#6fbf73"],
+    "bgImage": "assets/themes/forest.png",
+    "vars": {
+      "bgPrimary": "#14261c",
+      "bgSecondary": "#1b3226",
+      "bgSidebar": "#1a3326",
+      "textPrimary": "#e4f0e6",
+      "textSecondary": "#9bb5a2",
+      "accent": "#6fbf73",
+      "accentHover": "#8ad18d",
+      "border": "#2f4a3a",
+      "inputBg": "#20382c",
+      "bubbleUser": "#2a4a38",
+      "bubbleAssistant": "#1b3226"
+    }
+  },
+  "ocean": {
+    "id": "ocean",
+    "name": "海洋",
+    "description": "深蓝灰 + 水色",
+    "preview": ["#0d1b24", "#132733", "#3db8c5"],
+    "bgImage": "assets/themes/ocean.png",
+    "vars": {
+      "bgPrimary": "#0d1b24",
+      "bgSecondary": "#132733",
+      "bgSidebar": "#09141c",
+      "textPrimary": "#e3f4f8",
+      "textSecondary": "#8fb4c0",
+      "accent": "#3db8c5",
+      "accentHover": "#5ccdd8",
+      "border": "#23404c",
+      "inputBg": "#17303c",
+      "bubbleUser": "#1a3f4c",
+      "bubbleAssistant": "#132733"
+    }
+  },
+  "latte": {
+    "id": "latte",
+    "name": "拿铁",
+    "description": "暖米白 + 咖啡棕",
+    "preview": ["#f6f0e8", "#efe6da", "#a67c52"],
+    "bgImage": "assets/themes/latte.png",
+    "vars": {
+      "bgPrimary": "#f6f0e8",
+      "bgSecondary": "#efe6da",
+      "bgSidebar": "#e6d8c6",
+      "textPrimary": "#3d2e22",
+      "textSecondary": "#7a6554",
+      "accent": "#a67c52",
+      "accentHover": "#8f6843",
+      "border": "#d9c7b2",
+      "inputBg": "#fffaf4",
+      "bubbleUser": "#e8d5be",
+      "bubbleAssistant": "#f3ebe1"
+    }
+  },
+  "mono": {
+    "id": "mono",
+    "name": "极简",
+    "description": "高对比黑白灰",
+    "preview": ["#111111", "#1a1a1a", "#ffffff"],
+    "bgImage": "assets/themes/mono.png",
+    "vars": {
+      "bgPrimary": "#111111",
+      "bgSecondary": "#1a1a1a",
+      "bgSidebar": "#0a0a0a",
+      "textPrimary": "#f5f5f5",
+      "textSecondary": "#a3a3a3",
+      "accent": "#ffffff",
+      "accentHover": "#d4d4d4",
+      "border": "#333333",
+      "inputBg": "#222222",
+      "bubbleUser": "#2a2a2a",
+      "bubbleAssistant": "#1a1a1a"
+    }
+  }
+}

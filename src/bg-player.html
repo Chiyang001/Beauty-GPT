@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beauty-GPT Background</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+      video {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #000;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="bgpt-video" muted loop autoplay playsinline webkit-playsinline></video>
+    <script src="bg-player.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40" role="img" aria-label="Chrome MV3">
+  <rect width="140" height="40" rx="8" fill="#4285F4"/>
+  <circle cx="22" cy="20" r="9" fill="#fff"/>
+  <circle cx="22" cy="20" r="4.2" fill="#4285F4"/>
+  <path d="M22 11a9 9 0 0 1 7.8 4.5H22V11z" fill="#EA4335"/>
+  <path d="M29.8 15.5A9 9 0 0 1 26.5 27l-4.5-7.5h7.8z" fill="#FBBC05"/>
+  <path d="M26.5 27A9 9 0 0 1 13 24.5l6.5-4 7 6.5z" fill="#34A853"/>
+  <text x="40" y="26" fill="#fff" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="14" font-weight="700">Chrome MV3</text>
+</svg>
