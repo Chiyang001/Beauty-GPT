@@ -705,6 +705,42 @@ html.beauty-gpt-active #page-header[class*="bg-token-bg-secondary"] {
   border: none !important;
 }
 
+/* 语音模式顶栏：与 page-header 一致透明，避免实色条/黑边 */
+html.beauty-gpt-active .bg-surface-primary:has(button[aria-label="语音设置"]),
+html.beauty-gpt-active .bg-surface-primary:has(button[aria-label="Voice settings"]),
+html.beauty-gpt-active [class*="bg-surface-primary"]:has(button[aria-label="语音设置"]),
+html.beauty-gpt-active [class*="bg-surface-primary"]:has(button[aria-label="Voice settings"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-bottom: none !important;
+}
+
+html.beauty-gpt-active button[aria-label="语音设置"],
+html.beauty-gpt-active button[aria-label="Voice settings"] {
+  color: var(--bgpt-text-primary) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+html.beauty-gpt-active button[aria-label="语音设置"]:hover,
+html.beauty-gpt-active button[aria-label="Voice settings"]:hover {
+  background-color: ${hoverSurface} !important;
+  color: var(--bgpt-text-primary) !important;
+}
+
+html.beauty-gpt-active button[aria-label="语音设置"] svg,
+html.beauty-gpt-active button[aria-label="Voice settings"] svg,
+html.beauty-gpt-active button[aria-label="语音设置"] .icon,
+html.beauty-gpt-active button[aria-label="Voice settings"] .icon {
+  color: var(--bgpt-text-primary) !important;
+  fill: currentColor !important;
+}
+
 html.beauty-gpt-active #page-header [role="group"],
 html.beauty-gpt-active #page-header [aria-label="选择聊天界面"] {
   background: transparent !important;
@@ -2150,6 +2186,29 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         setInline(el, "color", vars.textPrimary);
       });
 
+    // Voice mode top chrome — keep transparent like page-header (always, not only deep pass)
+    document
+      .querySelectorAll(
+        '.bg-surface-primary:has(button[aria-label="语音设置"]), .bg-surface-primary:has(button[aria-label="Voice settings"]), [class*="bg-surface-primary"]:has(button[aria-label="语音设置"]), [class*="bg-surface-primary"]:has(button[aria-label="Voice settings"])'
+      )
+      .forEach((el) => {
+        setInline(el, "background", "transparent");
+        setInline(el, "background-color", "transparent");
+        setInline(el, "background-image", "none");
+        setInline(el, "box-shadow", "none");
+        setInline(el, "border", "none");
+        setInline(el, "border-bottom", "none");
+      });
+    document
+      .querySelectorAll('button[aria-label="语音设置"], button[aria-label="Voice settings"]')
+      .forEach((el) => {
+        setInline(el, "background", "transparent");
+        setInline(el, "background-color", "transparent");
+        setInline(el, "box-shadow", "none");
+        setInline(el, "border", "none");
+        setInline(el, "color", vars.textPrimary);
+      });
+
     // Sidebar header: 搜索 / 关闭边栏
     document
       .querySelectorAll(
@@ -2561,6 +2620,13 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       )
       .forEach((el) => {
         if (el.closest("#stage-slideover-sidebar")) return;
+        if (
+          el.querySelector?.(
+            'button[aria-label="语音设置"], button[aria-label="Voice settings"]'
+          )
+        ) {
+          return;
+        }
         const nearComposerList =
           el.classList.contains("bg-surface-primary") ||
           String(el.className || "").includes("bg-surface-primary");
@@ -3162,6 +3228,17 @@ html.beauty-gpt-bg #page-header[class*="bg-token"] {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
+}
+
+html.beauty-gpt-bg .bg-surface-primary:has(button[aria-label="语音设置"]),
+html.beauty-gpt-bg .bg-surface-primary:has(button[aria-label="Voice settings"]),
+html.beauty-gpt-bg [class*="bg-surface-primary"]:has(button[aria-label="语音设置"]),
+html.beauty-gpt-bg [class*="bg-surface-primary"]:has(button[aria-label="Voice settings"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* 输入框：不透明 + 保持原生圆角（默认主题+壁纸时 beauty-gpt-active 已卸下） */
