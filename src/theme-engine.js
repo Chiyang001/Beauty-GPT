@@ -419,15 +419,15 @@ html.beauty-gpt-active [class*="from-token-bg-secondary"] {
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
-html.beauty-gpt-active [role="tablist"],
-html.beauty-gpt-active [role="tab"] {
+html.beauty-gpt-active [role="tablist"]:not([data-settings-tab-list]),
+html.beauty-gpt-active [role="tablist"]:not([data-settings-tab-list]) > [role="tab"] {
   color: var(--bgpt-text-secondary) !important;
   background: transparent !important;
   border-color: var(--bgpt-border) !important;
 }
 
-html.beauty-gpt-active [role="tab"][aria-selected="true"],
-html.beauty-gpt-active [role="tab"][data-state="active"],
+html.beauty-gpt-active [role="tablist"]:not([data-settings-tab-list]) > [role="tab"][aria-selected="true"],
+html.beauty-gpt-active [role="tablist"]:not([data-settings-tab-list]) > [role="tab"][data-state="active"],
 html.beauty-gpt-active [data-testid="artifacts-surface-top-controls"] button[aria-current="page"],
 html.beauty-gpt-active [data-testid="artifacts-surface-top-controls"] .btn-primary-inverse {
   color: var(--bgpt-text-primary) !important;
@@ -1735,6 +1735,44 @@ html.beauty-gpt-active [role="dialog"]:has(button[aria-label="关闭"]):has(.tex
   border-color: ${vars.border} !important;
 }
 
+/* 设置弹窗：左侧 Tab 栏实底 + 选中态（勿用全局 tab 透明规则） */
+html.beauty-gpt-active [role="dialog"].popover:has([data-settings-tab-list="true"]),
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [role="tabpanel"],
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) .border-token-border-extra-light.flex.shrink-0,
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] {
+  background-color: ${vars.bgPrimary} !important;
+  background: ${vars.bgPrimary} !important;
+  color: ${vars.textPrimary} !important;
+}
+
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"] {
+  color: ${vars.textSecondary} !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0.5rem !important;
+}
+
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"][aria-selected="true"],
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"][data-state="active"] {
+  color: ${vars.textPrimary} !important;
+  background-color: ${withAlpha(vars.textPrimary, dark ? 0.1 : 0.08)} !important;
+}
+
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"]:hover:not([aria-selected="true"]):not([data-state="active"]) {
+  background-color: ${withAlpha(vars.textPrimary, dark ? 0.06 : 0.04)} !important;
+  color: ${vars.textPrimary} !important;
+}
+
+/* 设置 Tab 列表横向滚动渐变：勿把 from-token-bg-primary 洗成透明 */
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [class*="from-token-bg-primary"] {
+  --tw-gradient-from: ${vars.bgPrimary} !important;
+  --tw-gradient-to: ${vars.bgPrimary} !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  background-color: ${vars.bgPrimary} !important;
+}
+
 /* 普通回复的 markdown-new-styling 绝不能套文稿块粉底 */
 html.beauty-gpt-active #thread .markdown.markdown-new-styling,
 html.beauty-gpt-active #thread .markdown-new-styling:not(.writing-block-editor):not(.mt4SwW_editor),
@@ -2599,9 +2637,40 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       setInline(el, "border-color", vars.border);
     });
 
+    // Settings dialog: solid sidebar + clear inactive tab residue
+    const settingsTabActiveBg = withAlpha(
+      vars.textPrimary,
+      isDark(vars.bgPrimary) ? 0.1 : 0.08
+    );
+    document
+      .querySelectorAll(
+        '[role="dialog"].popover:has([data-settings-tab-list="true"]), [role="dialog"]:has([data-settings-tab-list="true"]) [role="tabpanel"], [role="dialog"]:has([data-settings-tab-list="true"]) .border-token-border-extra-light, [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"]'
+      )
+      .forEach((el) => {
+        setInline(el, "background-color", vars.bgPrimary);
+        setInline(el, "background", vars.bgPrimary);
+        setInline(el, "color", vars.textPrimary);
+      });
+
+    document.querySelectorAll('[data-settings-tab-list="true"] [role="tab"]').forEach((el) => {
+      const active =
+        el.getAttribute("aria-selected") === "true" ||
+        el.getAttribute("data-state") === "active";
+      if (active) {
+        setInline(el, "background-color", settingsTabActiveBg);
+        setInline(el, "color", vars.textPrimary);
+      } else {
+        setInline(el, "background", "transparent");
+        setInline(el, "background-color", "transparent");
+        setInline(el, "color", vars.textSecondary);
+        setInline(el, "box-shadow", "none");
+      }
+    });
+
     document
       .querySelectorAll("[role='tab'][aria-selected='true'], [role='tab'][data-state='active']")
       .forEach((el) => {
+        if (el.closest("[data-settings-tab-list]")) return;
         setInline(
           el,
           "background-color",
@@ -3184,6 +3253,17 @@ html.beauty-gpt-bg [data-composer-surface="true"] .composer-btn,
 html.beauty-gpt-bg [data-composer-surface="true"] .composer-submit-button-color,
 html.beauty-gpt-bg [data-composer-surface="true"] .__composer-pill {
   border-radius: 9999px !important;
+}
+
+/* 设置弹窗：壁纸模式下保持实底 */
+html.beauty-gpt-bg [role="dialog"].popover:has([data-settings-tab-list="true"]),
+html.beauty-gpt-bg [role="dialog"]:has([data-settings-tab-list="true"]) [role="tabpanel"],
+html.beauty-gpt-bg [role="dialog"]:has([data-settings-tab-list="true"]) .border-token-border-extra-light.flex.shrink-0,
+html.beauty-gpt-bg [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] {
+  background: var(--bgpt-bg-primary, ${bgPrimary}) !important;
+  background-color: var(--bgpt-bg-primary, ${bgPrimary}) !important;
+  background-image: none !important;
+  opacity: 1 !important;
 }
 
 /* 侧栏保持不透明，挡住壁纸 */
