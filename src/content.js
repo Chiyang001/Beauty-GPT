@@ -1006,6 +1006,21 @@
         }
       }
     });
+
+    window.addEventListener("hashchange", () => {
+      if (!isAlive()) {
+        disposeExtensionRuntime();
+        return;
+      }
+      try {
+        if (typeof Theme.syncRouteHints === "function") Theme.syncRouteHints();
+        Theme.ensureThemeAlive(state.activeVars, { mode: "full" });
+      } catch (err) {
+        if (/Extension context invalidated/i.test(err?.message || "")) {
+          disposeExtensionRuntime(err.message);
+        }
+      }
+    });
   }
 
   try {

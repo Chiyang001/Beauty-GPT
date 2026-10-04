@@ -157,6 +157,49 @@
     return isDark(hex) ? "#ffffff" : "#1a1a1a";
   }
 
+  // ChatGPT's app-shell uses a second token namespace. Keep legacy aliases
+  // above for older rollouts; define modern aliases together at theme boundaries.
+  function modernThemeTokens(vars) {
+    const tokens = {};
+    const group = (names, value) => names.split(' ').forEach((name) => { tokens['--' + name] = value; });
+    const hover = withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.10 : 0.06);
+    group('color-surface color-surface-secondary color-surface-canvas color-surface-recovery color-token-bg-primary color-token-main-surface-primary app-color-background-surface app-color-background-surface-under app-color-background-shell', vars.bgPrimary);
+    group('color-surface-tertiary color-surface-card color-surface-elevated color-surface-elevated-secondary color-token-bg-secondary color-token-bg-tertiary app-color-background-card app-color-background-elevated-primary app-color-background-elevated-primary-opaque app-color-background-elevated-secondary app-color-background-elevated-secondary-opaque app-color-background-editor-opaque app-color-background-control app-color-background-application-menu', vars.bgSecondary);
+    group('color-token-side-bar-background', vars.bgSidebar);
+    group('color-text-primary color-token-text-primary app-color-text-foreground app-color-foreground-application-menu app-color-text-button-secondary', vars.textPrimary);
+    group('color-text-secondary color-token-text-secondary app-color-text-secondary app-color-text-foreground-secondary', vars.textSecondary);
+    group('color-text-tertiary color-token-text-tertiary app-color-text-foreground-tertiary app-color-text-button-tertiary', vars.textSecondary);
+    group('color-token-border color-token-border-default color-token-border-light color-token-border-heavy app-color-border app-color-border-light app-color-border-heavy app-color-border-application-menu-separator', vars.border);
+    group('app-color-text-accent color-token-text-link-foreground app-color-border-focus link-primary-text-color', vars.accent);
+    group('app-color-background-button-primary app-color-background-button-primary-inactive color-background-primary-solid color-border-primary-solid', vars.accent);
+    group('app-color-background-button-primary-hover app-color-background-button-primary-active color-background-primary-solid-hover color-background-primary-solid-active', vars.accentHover);
+    group('app-color-text-button-primary app-color-text-on-accent color-text-primary-solid color-text-on-accent', contrastOn(vars.accent));
+    group('app-color-background-button-secondary color-background-button-outline-hover', vars.bgSecondary);
+    group('app-color-background-button-secondary-hover app-color-background-button-secondary-active app-color-background-button-tertiary-hover app-color-background-button-tertiary-active color-background-primary-ghost-hover color-background-primary-ghost-active color-background-secondary-ghost-hover color-background-primary-soft-hover', hover);
+    group('color-background-primary-soft-active color-background-primary-soft-alpha color-background-secondary-soft-alpha-active color-background-activity-control', vars.bgSecondary);
+    group('color-background-primary-surface color-background-secondary-soft-hover color-background-primary-soft-alpha-hover', hover);
+    group('color-text-primary-surface color-text-primary-ghost-hover color-text-primary-soft-alt', vars.textPrimary);
+    group('color-border-primary-outline color-token-input-border', vars.border);
+    group('color-background-composer color-background-composer-action-bar', vars.inputBg);
+    group('color-background-mode-toggle-track', vars.bgSecondary);
+    group('color-background-mode-toggle-selected', vars.inputBg);
+    group('color-text-mode-toggle-primary', vars.textPrimary);
+    group('color-text-mode-toggle-inactive', vars.textSecondary);
+    group('color-text-mode-toggle-accent', vars.accent);
+    group('color-border-mode-toggle-selected', vars.border);
+    group('shadow-mode-toggle-selected', 'none');
+    group('segmented-control-background', vars.bgSecondary);
+    group('color-background-segmented-form-selected', hover);
+    group('tooltip-background-color tooltip-compact-background-color color-background-tooltip color-background-tooltip-classic', vars.bgSecondary);
+    group('tooltip-text-color tooltip-compact-text-color color-text-tooltip color-text-tooltip-classic', vars.textPrimary);
+    group('color-text-tooltip-description color-text-tooltip-secondary color-text-tooltip-tertiary color-text-tooltip-shortcut', vars.textSecondary);
+    group('color-border-tooltip color-border-tooltip-classic', vars.border);
+    group('color-background-tooltip-shortcut tooltip-compact-interactive-background-color-hover', hover);
+    group('tooltip-compact-interactive-text-color-hover', vars.textPrimary);
+    group('codeblock-background-color color-token-text-code-block-background', vars.bgSecondary);
+    return Object.entries(tokens).map(([key, value]) => `${key}: ${value} !important;`).join('\n  ');
+  }
+
   function generateThemeCss(vars) {
     if (!vars) return "";
 
@@ -165,6 +208,9 @@
     const accentFg = contrastOn(vars.accent);
     const hoverSurface = withAlpha(vars.accent, dark ? 0.14 : 0.1);
     const softSurface = withAlpha(vars.textPrimary, dark ? 0.08 : 0.05);
+    const sidebarHover = withAlpha(vars.textPrimary, dark ? 0.12 : 0.1);
+    const sidebarBorder = dark ? withAlpha(vars.border, 0.95) : withAlpha(vars.textPrimary, 0.24);
+    const sidebarLabel = vars.textSecondary;
     const elevated = vars.bgSecondary;
     const composerBg = vars.inputBg;
     const composerBorder = withAlpha(vars.border, 0.9);
@@ -231,12 +277,21 @@
   --gray-700: ${vars.textSecondary} !important;
   --gray-800: ${vars.textPrimary} !important;
   --gray-900: ${vars.textPrimary} !important;
+  --ds-bg-sidebar: ${vars.bgSidebar} !important;
+  --ds-bg-primary: ${vars.bgPrimary} !important;
+  --ds-bg-secondary: ${vars.bgSecondary} !important;
+  --color-bg-primary: ${vars.bgPrimary} !important;
+  --color-bg-secondary: ${vars.bgSecondary} !important;
+  --color-surface-primary: ${vars.bgPrimary} !important;
+  --color-surface-secondary: ${vars.bgSecondary} !important;
 `;
 
     return `
-html.beauty-gpt-active {
+html.beauty-gpt-active,
+html.beauty-gpt-active :is(.dark, .light, [data-theme="dark"], [data-theme="light"]) {
   ${rootVars}
   ${chatgptTokens}
+  ${modernThemeTokens(vars)}
   color-scheme: ${dark ? "dark" : "light"} !important;
 }
 
@@ -283,9 +338,7 @@ html.beauty-gpt-active #main > div {
 
 html.beauty-gpt-active input[type="search"],
 html.beauty-gpt-active input[type="text"],
-html.beauty-gpt-active [role="search"],
-html.beauty-gpt-active [placeholder*="搜索"],
-html.beauty-gpt-active [aria-label*="搜索"] {
+html.beauty-gpt-active input[role="searchbox"] {
   background-color: var(--bgpt-input-bg) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
@@ -581,11 +634,84 @@ html.beauty-gpt-active #stage-slideover-sidebar .sticky.top-0,
 html.beauty-gpt-active nav[aria-label="历史聊天记录"],
 html.beauty-gpt-active nav[aria-label="侧边栏"],
 html.beauty-gpt-active #stage-slideover-sidebar .grow,
-html.beauty-gpt-active #stage-slideover-sidebar [class*="relative z-30"] {
+html.beauty-gpt-active #stage-slideover-sidebar [class*="relative z-30"],
+html.beauty-gpt-active [data-testid="sidebar"],
+html.beauty-gpt-active aside:has(#history),
+html.beauty-gpt-active aside:has(nav[aria-label*="历史"]),
+html.beauty-gpt-active #sidebar-header,
+html.beauty-gpt-active #history {
   background-color: var(--bgpt-bg-sidebar) !important;
   background: var(--bgpt-bg-sidebar) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
+}
+
+/* 侧栏内层若被 ChatGPT 写成纯黑 / surface 实底，强制拉回主题侧栏色 */
+html.beauty-gpt-active #stage-slideover-sidebar [class*="bg-black"],
+html.beauty-gpt-active #stage-slideover-sidebar [class*="bg-surface-primary"],
+html.beauty-gpt-active #stage-slideover-sidebar [class*="bg-surface-secondary"],
+html.beauty-gpt-active #stage-slideover-sidebar [class*="bg-token-main-surface"],
+html.beauty-gpt-active #stage-slideover-sidebar [class*="bg-token-bg-"],
+html.beauty-gpt-active aside:has(#history) [class*="bg-black"],
+html.beauty-gpt-active aside:has(#history) [class*="bg-surface-primary"],
+html.beauty-gpt-active [data-testid="sidebar"] [class*="bg-black"],
+html.beauty-gpt-active [data-testid="sidebar"] [class*="bg-surface-primary"] {
+  background-color: var(--bgpt-bg-sidebar) !important;
+  background: var(--bgpt-bg-sidebar) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+
+/* 新版布局：左栏 + 主内容（无 #stage-slideover-sidebar 时兜底） */
+html.beauty-gpt-active .relative.flex.h-full.w-full.overflow-hidden > :first-child:not(main):not(#main):not(#thread):not([data-scroll-root]),
+html.beauty-gpt-active .flex.h-svh.w-screen > :first-child:has(#history),
+html.beauty-gpt-active .flex.h-svh.w-screen > :first-child:has(nav[aria-label*="历史"]),
+html.beauty-gpt-active .flex.h-full.w-screen > :first-child:has(#history),
+html.beauty-gpt-active .flex.h-full.w-screen > :first-child:has([data-testid="create-new-chat-button"]) {
+  background-color: var(--bgpt-bg-sidebar) !important;
+  background: var(--bgpt-bg-sidebar) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+
+html.beauty-gpt-active .relative.flex.h-full.w-full.overflow-hidden > :first-child [class*="bg-black"],
+html.beauty-gpt-active .flex.h-svh.w-screen > :first-child [class*="bg-black"],
+html.beauty-gpt-active .flex.h-full.w-screen > :first-child [class*="bg-black"] {
+  background-color: var(--bgpt-bg-sidebar) !important;
+  background: var(--bgpt-bg-sidebar) !important;
+}
+
+/* 侧栏与主内容分区：右边线 + 轻阴影，避免「糊成一团」 */
+html.beauty-gpt-active #stage-slideover-sidebar,
+html.beauty-gpt-active aside:has(#history),
+html.beauty-gpt-active [data-testid="sidebar"],
+html.beauty-gpt-active .flex.h-svh.w-screen > :first-child:has(#history),
+html.beauty-gpt-active .flex.h-full.w-screen > :first-child:has(#history),
+html.beauty-gpt-active .relative.flex.h-full.w-full.overflow-hidden > :first-child:has(#history) {
+  border-right: 1px solid ${sidebarBorder} !important;
+  box-shadow: ${dark ? "inset -1px 0 0 " + withAlpha(vars.textPrimary, 0.08) : "2px 0 8px " + withAlpha(vars.textPrimary, 0.08)} !important;
+}
+
+/* 顶栏 / 首页标题：强制主文字色，避免 token 浅色糊在浅底上 */
+html.beauty-gpt-active #page-header,
+html.beauty-gpt-active #page-header button,
+html.beauty-gpt-active #page-header a,
+html.beauty-gpt-active #page-header span,
+html.beauty-gpt-active [data-testid="chat-title-button"],
+html.beauty-gpt-active h1[class*="text-"],
+html.beauty-gpt-active .text-center h1 {
+  color: var(--bgpt-text-primary) !important;
+}
+
+/* 主内容列：与侧栏拉开色差 */
+html.beauty-gpt-active:not(.beauty-gpt-bg) .flex.h-svh.w-screen > :last-child,
+html.beauty-gpt-active:not(.beauty-gpt-bg) .flex.h-full.w-screen > :last-child,
+html.beauty-gpt-active:not(.beauty-gpt-bg) .relative.flex.h-full.w-full.overflow-hidden > :not(:first-child),
+html.beauty-gpt-active:not(.beauty-gpt-bg) #main,
+html.beauty-gpt-active:not(.beauty-gpt-bg) main,
+html.beauty-gpt-active:not(.beauty-gpt-bg) #thread,
+html.beauty-gpt-active:not(.beauty-gpt-bg) [data-scroll-root] {
+  background-color: var(--bgpt-bg-primary) !important;
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
 }
 
 html.beauty-gpt-active #stage-slideover-sidebar .border-token-border-extra-light,
@@ -594,28 +720,44 @@ html.beauty-gpt-active #stage-slideover-sidebar [class*="border-token-border"] {
   border-color: var(--bgpt-border) !important;
 }
 
-/* 菜单项：彻底去掉选中/悬停色块与伪元素「框」 */
+/* 菜单项：默认透明，悬停/选中有清晰反馈 */
 html.beauty-gpt-active #stage-slideover-sidebar .__menu-item,
 html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item],
 html.beauty-gpt-active #stage-slideover-sidebar a.__menu-item,
-html.beauty-gpt-active #stage-slideover-sidebar .__menu-item:hover,
-html.beauty-gpt-active #stage-slideover-sidebar .__menu-item.hoverable:hover,
-html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item]:hover,
-html.beauty-gpt-active #stage-slideover-sidebar .__menu-item[data-active],
-html.beauty-gpt-active #stage-slideover-sidebar .__menu-item[data-active]:hover,
-html.beauty-gpt-active #stage-slideover-sidebar a[data-active][data-sidebar-item],
-html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item][data-active],
-html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item][data-active]:hover {
+html.beauty-gpt-active aside:has(#history) .__menu-item,
+html.beauty-gpt-active aside:has(#history) [data-sidebar-item],
+html.beauty-gpt-active [data-testid="sidebar"] .__menu-item,
+html.beauty-gpt-active [data-testid="sidebar"] [data-sidebar-item] {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
   border: none !important;
-  border-width: 0 !important;
   outline: none !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-offset-shadow: 0 0 #0000 !important;
   color: var(--bgpt-text-primary) !important;
+}
+
+html.beauty-gpt-active #stage-slideover-sidebar .__menu-item:hover,
+html.beauty-gpt-active #stage-slideover-sidebar .__menu-item.hoverable:hover,
+html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item]:hover,
+html.beauty-gpt-active aside:has(#history) .__menu-item:hover,
+html.beauty-gpt-active aside:has(#history) [data-sidebar-item]:hover,
+html.beauty-gpt-active [data-testid="sidebar"] .__menu-item:hover,
+html.beauty-gpt-active [data-testid="sidebar"] [data-sidebar-item]:hover {
+  background: ${sidebarHover} !important;
+  background-color: ${sidebarHover} !important;
+  color: var(--bgpt-text-primary) !important;
+  border-radius: 0.5rem !important;
+}
+
+html.beauty-gpt-active #stage-slideover-sidebar .__menu-item[data-active],
+html.beauty-gpt-active #stage-slideover-sidebar [data-sidebar-item][data-active],
+html.beauty-gpt-active aside:has(#history) [data-sidebar-item][data-active],
+html.beauty-gpt-active [data-testid="sidebar"] [data-sidebar-item][data-active] {
+  background: ${withAlpha(vars.accent, dark ? 0.16 : 0.12)} !important;
+  background-color: ${withAlpha(vars.accent, dark ? 0.16 : 0.12)} !important;
+  color: var(--bgpt-accent) !important;
+  border-radius: 0.5rem !important;
 }
 
 html.beauty-gpt-active #stage-slideover-sidebar .__menu-item::before,
@@ -633,9 +775,67 @@ html.beauty-gpt-active #stage-slideover-sidebar .__menu-item[data-active]::after
   display: none !important;
 }
 
-html.beauty-gpt-active #stage-slideover-sidebar .__menu-label {
-  color: var(--bgpt-text-primary) !important;
+html.beauty-gpt-active #stage-slideover-sidebar .__menu-label,
+html.beauty-gpt-active aside:has(#history) .__menu-label,
+html.beauty-gpt-active [data-testid="sidebar"] .__menu-label {
+  color: ${sidebarLabel} !important;
   background: transparent !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* 侧栏文字级联：新版 DOM 可能不再挂 token 文本类 */
+html.beauty-gpt-active #stage-slideover-sidebar,
+html.beauty-gpt-active aside:has(#history),
+html.beauty-gpt-active [data-testid="sidebar"],
+html.beauty-gpt-active nav[aria-label="历史聊天记录"] {
+  color: var(--bgpt-text-primary) !important;
+}
+
+html.beauty-gpt-active #stage-slideover-sidebar .text-token-text-primary,
+html.beauty-gpt-active #stage-slideover-sidebar .text-token-text-secondary,
+html.beauty-gpt-active #stage-slideover-sidebar .text-token-text-tertiary,
+html.beauty-gpt-active aside:has(#history) .text-token-text-primary,
+html.beauty-gpt-active aside:has(#history) .text-token-text-secondary,
+html.beauty-gpt-active [data-testid="sidebar"] .text-token-text-primary,
+html.beauty-gpt-active [data-testid="sidebar"] .text-token-text-secondary,
+html.beauty-gpt-active #stage-slideover-sidebar span:not(.icon),
+html.beauty-gpt-active aside:has(#history) span:not(.icon),
+html.beauty-gpt-active [data-testid="sidebar"] span:not(.icon) {
+  color: var(--bgpt-text-primary) !important;
+}
+
+html.beauty-gpt-active #stage-slideover-sidebar svg,
+html.beauty-gpt-active #stage-slideover-sidebar svg.icon,
+html.beauty-gpt-active aside:has(#history) svg,
+html.beauty-gpt-active [data-testid="sidebar"] svg {
+  color: var(--bgpt-text-primary) !important;
+  fill: currentColor !important;
+  opacity: 0.92 !important;
+}
+
+/* 侧栏「新聊天」等带边框的主操作按钮 */
+html.beauty-gpt-active #stage-slideover-sidebar [data-testid="create-new-chat-button"],
+html.beauty-gpt-active #stage-slideover-sidebar [data-testid="sidebar-new-chat-button"],
+html.beauty-gpt-active #stage-slideover-sidebar a.__menu-item.border,
+html.beauty-gpt-active #stage-slideover-sidebar .__menu-item-border,
+html.beauty-gpt-active #stage-slideover-sidebar .border-token-border-default.__menu-item,
+html.beauty-gpt-active #sidebar-header a.__menu-item,
+html.beauty-gpt-active #sidebar-header button.__menu-item {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+  box-shadow: none !important;
+}
+
+html.beauty-gpt-active #stage-slideover-sidebar [data-testid="create-new-chat-button"]:hover,
+html.beauty-gpt-active #stage-slideover-sidebar [data-testid="sidebar-new-chat-button"]:hover,
+html.beauty-gpt-active #stage-slideover-sidebar a.__menu-item.border:hover,
+html.beauty-gpt-active #sidebar-header a.__menu-item:hover,
+html.beauty-gpt-active #sidebar-header button.__menu-item:hover {
+  background-color: ${hoverSurface} !important;
+  color: var(--bgpt-text-primary) !important;
 }
 
 /* 当前会话仅用强调色+字重；非当前保持主文字色 */
@@ -840,13 +1040,26 @@ html.beauty-gpt-active #page-header [class*="#131313"] {
 }
 
 html.beauty-gpt-active .dark\\:bg-\\[\\#131313\\],
-html.beauty-gpt-active [class*="dark:bg-[#131313]"] {
+html.beauty-gpt-active [class*="dark:bg-[#131313]"],
+html.beauty-gpt-active [class*="dark:bg-[#0d0d0d]"],
+html.beauty-gpt-active [class*="dark:bg-[#1a1a1a]"],
+html.beauty-gpt-active [class*="dark:bg-[#212121]"],
+html.beauty-gpt-active [class*="dark:bg-[#2f2f2f]"] {
+  background-color: ${softSurface} !important;
+}
+
+html.beauty-gpt-active #page-header [style*="#0d0d0d"],
+html.beauty-gpt-active #page-header [style*="#1a1a1a"],
+html.beauty-gpt-active #page-header [style*="#212121"] {
   background-color: ${softSurface} !important;
 }
 
 /* ========== Composer (unified input bar) ========== */
 html.beauty-gpt-active [data-composer-surface="true"],
-html.beauty-gpt-active form[data-type="unified-composer"] [data-composer-surface="true"] {
+html.beauty-gpt-active form[data-type="unified-composer"] [data-composer-surface="true"],
+html.beauty-gpt-active form[data-type="unified-composer"],
+html.beauty-gpt-active #thread-bottom form:has([data-composer-surface="true"]),
+html.beauty-gpt-active .composer-parent form:has([data-composer-surface="true"]) {
   background-color: var(--bgpt-input-bg) !important;
   background: var(--bgpt-input-bg) !important;
   border: 1px solid ${composerBorder} !important;
@@ -854,6 +1067,18 @@ html.beauty-gpt-active form[data-type="unified-composer"] [data-composer-surface
   color: var(--bgpt-text-primary) !important;
   /* 勿加 overflow:clip — Chrome 下会与圆角叠加导致输入区裁切/错位 */
   border-radius: 28px !important;
+}
+
+/* Composer 被写成纯黑 / elevated 实底时拉回输入框色 */
+html.beauty-gpt-active [data-composer-surface="true"][class*="bg-black"],
+html.beauty-gpt-active [data-composer-surface="true"][class*="bg-surface"],
+html.beauty-gpt-active [data-composer-surface="true"][class*="bg-token-bg"],
+html.beauty-gpt-active form[data-type="unified-composer"] [class*="bg-black"],
+html.beauty-gpt-active #thread-bottom [class*="bg-black"]:has([data-composer-surface="true"]),
+html.beauty-gpt-active .composer-parent [class*="bg-black"]:has([data-composer-surface="true"]) {
+  background-color: var(--bgpt-input-bg) !important;
+  background: var(--bgpt-input-bg) !important;
+  color: var(--bgpt-text-primary) !important;
 }
 
 /* composer 外层壳 / corner-superellipse 包裹层保持透明，避免双层输入框 */
@@ -942,64 +1167,49 @@ html.beauty-gpt-active button[aria-label="开始听写"] {
   background-color: transparent !important;
 }
 
-/* ========== Tooltips：深底浅字，保证可读 ========== */
-html.beauty-gpt-active [role="tooltip"],
-html.beauty-gpt-active [popover="hint"],
-html.beauty-gpt-active [data-radix-tooltip-content],
-html.beauty-gpt-active [data-state="delayed-open"]:is([role="tooltip"], [data-radix-tooltip-content]),
-html.beauty-gpt-active [data-state="instant-open"]:is([role="tooltip"], [data-radix-tooltip-content]),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="delayed-open"]:not([role="menu"]):not([data-radix-menu-content]),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="instant-open"]:not([role="menu"]):not([data-radix-menu-content]) {
-  --bgpt-tooltip-bg: #1f1f1f;
-  --bgpt-tooltip-fg: #f5f5f5;
+/* Tooltip surfaces follow the theme. Native tooltip textTheme scopes may
+   redefine tokens locally, so apply aliases on the surface as well as root. */
+html.beauty-gpt-active :is([role="tooltip"], [data-radix-tooltip-content], [popover="hint"]) {
+  --color-background-tooltip: var(--bgpt-bg-secondary) !important;
+  --color-background-tooltip-classic: var(--bgpt-bg-secondary) !important;
+  --tooltip-background-color: var(--bgpt-bg-secondary) !important;
+  --tooltip-compact-background-color: var(--bgpt-bg-secondary) !important;
+  --color-text-tooltip: var(--bgpt-text-primary) !important;
+  --color-text-tooltip-classic: var(--bgpt-text-primary) !important;
+  --tooltip-text-color: var(--bgpt-text-primary) !important;
+  --tooltip-compact-text-color: var(--bgpt-text-primary) !important;
+  --color-text-tooltip-description: var(--bgpt-text-secondary) !important;
+  --color-text-tooltip-secondary: var(--bgpt-text-secondary) !important;
+  --color-text-tooltip-tertiary: var(--bgpt-text-secondary) !important;
+  --color-background-tooltip-shortcut: ${softSurface} !important;
+  --color-text-tooltip-shortcut: var(--bgpt-text-secondary) !important;
+  --color-border-tooltip: var(--bgpt-border) !important;
+  --color-border-tooltip-classic: var(--bgpt-border) !important;
+  --shadow-tooltip: 0 8px 24px ${withAlpha(vars.textPrimary, dark ? 0.3 : 0.14)} !important;
 }
-
-html.beauty-gpt-active [role="tooltip"],
-html.beauty-gpt-active [data-radix-tooltip-content],
-html.beauty-gpt-active [popover="hint"] > *:not(style):not(svg),
-html.beauty-gpt-active [role="tooltip"] > div,
-html.beauty-gpt-active [popover="hint"] > div:not(.bg-transparent),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="delayed-open"]:not([role="menu"]):not([data-radix-menu-content]),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="instant-open"]:not([role="menu"]):not([data-radix-menu-content]) {
-  background-color: #1f1f1f !important;
-  background: #1f1f1f !important;
-  color: #f5f5f5 !important;
-  border-color: #3a3a3a !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+html.beauty-gpt-active :is([role="tooltip"], [data-radix-tooltip-content]):not(.sr-only),
+html.beauty-gpt-active [popover="hint"] > div:not(.bg-transparent) {
+  background: var(--bgpt-bg-secondary) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+  box-shadow: var(--shadow-tooltip, 0 8px 24px ${withAlpha(vars.textPrimary, dark ? 0.3 : 0.14)}) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-
-/* 盖过 .bg-token-* 等更高优先级主题色，避免提示框被染回浅色底 */
-html.beauty-gpt-active [role="tooltip"].bg-token-main-surface-primary,
-html.beauty-gpt-active [role="tooltip"].bg-token-main-surface-secondary,
-html.beauty-gpt-active [role="tooltip"][class*="bg-token"],
-html.beauty-gpt-active [role="tooltip"] [class*="bg-token"],
-html.beauty-gpt-active [role="tooltip"] .bg-token-main-surface-primary,
-html.beauty-gpt-active [role="tooltip"] .bg-token-main-surface-secondary,
-html.beauty-gpt-active [role="tooltip"] .bg-token-bg-primary,
-html.beauty-gpt-active [role="tooltip"] .bg-token-bg-secondary,
-html.beauty-gpt-active [role="tooltip"] .bg-token-bg-elevated-primary,
-html.beauty-gpt-active [data-radix-tooltip-content][class*="bg-token"],
-html.beauty-gpt-active [data-radix-tooltip-content] [class*="bg-token"],
-html.beauty-gpt-active [data-radix-tooltip-content] .bg-token-main-surface-primary,
-html.beauty-gpt-active [data-radix-tooltip-content] .bg-token-main-surface-secondary,
-html.beauty-gpt-active [popover="hint"] [class*="bg-token"],
-html.beauty-gpt-active [popover="hint"] .bg-token-main-surface-primary,
-html.beauty-gpt-active [popover="hint"] .bg-token-main-surface-secondary,
-html.beauty-gpt-active [popover="hint"] [class*="bg-"]:not([class*="bg-transparent"]),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="delayed-open"]:not([role="menu"]):not([data-radix-menu-content])[class*="bg-token"],
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="instant-open"]:not([role="menu"]):not([data-radix-menu-content])[class*="bg-token"] {
-  background-color: #1f1f1f !important;
-  background: #1f1f1f !important;
-  color: #f5f5f5 !important;
-  border-color: #3a3a3a !important;
+/* Inner layout/text runs must not become a stack of shadowed rectangles. */
+html.beauty-gpt-active :is([role="tooltip"], [data-radix-tooltip-content]) :is(div, p, span):not([data-radix-tooltip-arrow]) {
+  background: transparent !important;
+  box-shadow: none !important;
 }
-
-html.beauty-gpt-active [role="tooltip"] *,
-html.beauty-gpt-active [data-radix-tooltip-content] *,
-html.beauty-gpt-active [popover="hint"] *:not(svg),
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="delayed-open"]:not([role="menu"]):not([data-radix-menu-content]) *,
-html.beauty-gpt-active [data-radix-popper-content-wrapper] > [data-state="instant-open"]:not([role="menu"]):not([data-radix-menu-content]) * {
-  color: #f5f5f5 !important;
+html.beauty-gpt-active :is([role="tooltip"], [data-radix-tooltip-content], [popover="hint"]) kbd {
+  background: ${softSurface} !important;
+  color: var(--bgpt-text-secondary) !important;
+  border-color: var(--bgpt-border) !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active :is([role="tooltip"], [data-radix-tooltip-content], [popover="hint"]) [data-radix-tooltip-arrow],
+html.beauty-gpt-active [data-radix-tooltip-arrow] {
+  fill: var(--bgpt-bg-secondary) !important;
 }
 
 html.beauty-gpt-active [popover].bg-transparent,
@@ -1080,20 +1290,80 @@ html.beauty-gpt-active [role="menu"] svg.icon-sm {
   fill: currentColor !important;
 }
 
-/* ========== Splash / chips ========== */
+/* ========== Splash / landing / chips ========== */
+/* 新版首页：隐藏 GPT 原生 burrito-nux 装饰背景，避免与主题/壁纸冲突 */
+html.beauty-gpt-active picture:has(img[src*="burrito-nux"]),
+html.beauty-gpt-active picture:has(source[srcset*="burrito-nux"]),
+html.beauty-gpt-active img[src*="burrito-nux"],
+html.beauty-gpt-active img[srcset*="burrito-nux"],
+html.beauty-gpt-active source[srcset*="burrito-nux"],
+html.beauty-gpt-active [data-testid="nux-background"],
+html.beauty-gpt-active [data-testid="landing-background"],
+html.beauty-gpt-active [class*="burrito-nux"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+html.beauty-gpt-active:not(.beauty-gpt-bg) picture:has(img[src*="burrito-nux"]),
+html.beauty-gpt-active:not(.beauty-gpt-bg) picture:has(source[srcset*="burrito-nux"]) {
+  display: none !important;
+}
+
+/* 首页居中布局壳层：铺主题底 */
+html.beauty-gpt-active .h-svh.w-screen,
+html.beauty-gpt-active [class*="@container/thread"],
+html.beauty-gpt-active .relative.flex.h-full.w-full.overflow-hidden,
+html.beauty-gpt-active main.flex.flex-col,
+html.beauty-gpt-active [data-testid="thread-layout"],
+html.beauty-gpt-active [class*="bg-(--main-surface"],
+html.beauty-gpt-active [class*="bg-(--composer-surface"] {
+  color: var(--bgpt-text-primary) !important;
+}
+
+/* 勿给整页壳层统一铺主色 — 会盖住侧栏/主区分层；主区由上方「主内容列」规则负责 */
+html.beauty-gpt-active:not(.beauty-gpt-bg) [data-testid="thread-layout"],
+html.beauty-gpt-active:not(.beauty-gpt-bg) [class*="bg-(--main-surface"],
+html.beauty-gpt-active:not(.beauty-gpt-bg) [class*="bg-(--composer-surface"] {
+  background-color: var(--bgpt-bg-primary) !important;
+  background: var(--bgpt-bg-primary) !important;
+  background-image: none !important;
+}
+
+/* 首页问候语 / splash 标题 */
 html.beauty-gpt-active h1,
 html.beauty-gpt-active .text-heading-2,
-html.beauty-gpt-active [data-splash-headline-option] {
+html.beauty-gpt-active .text-heading-1,
+html.beauty-gpt-active [data-splash-headline-option],
+html.beauty-gpt-active [data-testid="splash-screen"] h1,
+html.beauty-gpt-active [data-testid="splash-screen"] h2 {
+  color: var(--bgpt-text-primary) !important;
+  background: transparent !important;
+}
+
+/* 首页建议芯片（Steam 特卖 / 开发清单等） */
+html.beauty-gpt-active [data-testid="use-case-prompt-chips"],
+html.beauty-gpt-active [data-testid="use-case-prompt-chips"] > div,
+html.beauty-gpt-active [data-testid="use-case-prompt-chips"] .group.relative,
+html.beauty-gpt-active [data-testid="use-case-prompt-chips"] .group\\/item {
+  background: transparent !important;
+  background-color: transparent !important;
   color: var(--bgpt-text-primary) !important;
 }
 
 html.beauty-gpt-active [data-testid="use-case-prompt-chips"] button,
 html.beauty-gpt-active [data-testid="use-case-prompt-chips"] .text-token-text-tertiary {
   color: var(--bgpt-text-secondary) !important;
+  background: ${softSurface} !important;
+  background-color: ${softSurface} !important;
+  border: 1px solid ${withAlpha(vars.border, 0.65)} !important;
+  border-radius: 9999px !important;
+  box-shadow: none !important;
 }
 
 html.beauty-gpt-active [data-testid="use-case-prompt-chips"] button:hover {
   background-color: ${hoverSurface} !important;
+  border-color: var(--bgpt-border) !important;
 }
 
 html.beauty-gpt-active [data-testid="use-case-prompt-chips"] button:hover .text-token-text-tertiary,
@@ -1771,17 +2041,53 @@ html.beauty-gpt-active [role="dialog"]:has(button[aria-label="关闭"]):has(.tex
   border-color: ${vars.border} !important;
 }
 
-/* 设置弹窗：左侧 Tab 栏实底 + 选中态（勿用全局 tab 透明规则） */
+/* 设置：弹窗 + 全页路由（含「返回应用」） */
 html.beauty-gpt-active [role="dialog"].popover:has([data-settings-tab-list="true"]),
 html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [role="tabpanel"],
 html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) .border-token-border-extra-light.flex.shrink-0,
-html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] {
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"],
+html.beauty-gpt-active.beauty-gpt-settings,
+html.beauty-gpt-active.beauty-gpt-settings body,
+html.beauty-gpt-active.beauty-gpt-settings #__next,
+html.beauty-gpt-active.beauty-gpt-settings #root,
+html.beauty-gpt-active.beauty-gpt-settings main,
+html.beauty-gpt-active.beauty-gpt-settings [role="main"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) body,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) #__next,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) #root,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) main,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [role="main"],
+html.beauty-gpt-active:has(a[aria-label="返回应用"]) main,
+html.beauty-gpt-active:has(a[aria-label="返回应用"]) [role="main"] {
   background-color: ${vars.bgPrimary} !important;
   background: ${vars.bgPrimary} !important;
   color: ${vars.textPrimary} !important;
 }
 
-html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"] {
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"],
+html.beauty-gpt-active:has(a[aria-label="返回应用"]) [data-settings-tab-list="true"],
+html.beauty-gpt-active.beauty-gpt-settings aside:has([data-settings-tab-list="true"]),
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) aside,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) nav:has([data-settings-tab-list="true"]) {
+  background-color: ${vars.bgSidebar} !important;
+  background: ${vars.bgSidebar} !important;
+  color: ${vars.textPrimary} !important;
+  border-color: ${vars.border} !important;
+}
+
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"],
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"] {
+  background-color: ${vars.bgSidebar} !important;
+  background: ${vars.bgSidebar} !important;
+}
+
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"],
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] [role="tab"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"] [role="tab"],
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] a,
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] button {
   color: ${vars.textSecondary} !important;
   background: transparent !important;
   background-color: transparent !important;
@@ -1791,22 +2097,184 @@ html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [dat
 }
 
 html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"][aria-selected="true"],
-html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"][data-state="active"] {
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"][data-state="active"],
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] [role="tab"][aria-selected="true"],
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] [role="tab"][data-state="active"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"] [role="tab"][aria-selected="true"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"] [role="tab"][data-state="active"] {
   color: ${vars.textPrimary} !important;
   background-color: ${withAlpha(vars.textPrimary, dark ? 0.1 : 0.08)} !important;
 }
 
-html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"]:hover:not([aria-selected="true"]):not([data-state="active"]) {
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [data-settings-tab-list="true"] [role="tab"]:hover:not([aria-selected="true"]):not([data-state="active"]),
+html.beauty-gpt-active.beauty-gpt-settings [data-settings-tab-list="true"] [role="tab"]:hover:not([aria-selected="true"]):not([data-state="active"]),
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [data-settings-tab-list="true"] [role="tab"]:hover:not([aria-selected="true"]):not([data-state="active"]) {
   background-color: ${withAlpha(vars.textPrimary, dark ? 0.06 : 0.04)} !important;
   color: ${vars.textPrimary} !important;
 }
 
+html.beauty-gpt-active.beauty-gpt-settings [role="tabpanel"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [role="tabpanel"],
+html.beauty-gpt-active.beauty-gpt-settings main > div,
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) main > div {
+  background-color: ${vars.bgPrimary} !important;
+  background: ${vars.bgPrimary} !important;
+  color: ${vars.textPrimary} !important;
+}
+
+html.beauty-gpt-active.beauty-gpt-settings input[type="search"],
+html.beauty-gpt-active.beauty-gpt-settings input[type="text"],
+html.beauty-gpt-active.beauty-gpt-settings [role="combobox"],
+html.beauty-gpt-active.beauty-gpt-settings button[role="combobox"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) input[type="search"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [role="combobox"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) button[role="combobox"] {
+  background-color: ${vars.inputBg} !important;
+  color: ${vars.textPrimary} !important;
+  border-color: ${vars.border} !important;
+}
+
+html.beauty-gpt-active.beauty-gpt-settings button[aria-label="返回应用"],
+html.beauty-gpt-active.beauty-gpt-settings a[aria-label="返回应用"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) button[aria-label="返回应用"],
+html.beauty-gpt-active:has(a[aria-label="返回应用"]) a[aria-label="返回应用"] {
+  color: ${vars.textPrimary} !important;
+  background: transparent !important;
+}
+
 /* 设置 Tab 列表横向滚动渐变：勿把 from-token-bg-primary 洗成透明 */
-html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [class*="from-token-bg-primary"] {
+html.beauty-gpt-active [role="dialog"]:has([data-settings-tab-list="true"]) [class*="from-token-bg-primary"],
+html.beauty-gpt-active.beauty-gpt-settings [class*="from-token-bg-primary"],
+html.beauty-gpt-active:has(button[aria-label="返回应用"]) [class*="from-token-bg-primary"] {
   --tw-gradient-from: ${vars.bgPrimary} !important;
   --tw-gradient-to: ${vars.bgPrimary} !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
   background-color: ${vars.bgPrimary} !important;
+}
+
+/* Plugin catalog uses a compound search field inside a sticky full-width strip. */
+html.beauty-gpt-active .bg-page-search:has(> #plugins-store-page-search) {
+  background: var(--bgpt-input-bg) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active input#plugins-store-page-search {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  caret-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active .bg-page-search:has(> #plugins-store-page-search):focus-within {
+  outline: 2px solid var(--bgpt-accent);
+  outline-offset: 2px;
+}
+html.beauty-gpt-bg main .sticky.bg-surface:has(#plugins-store-page-search),
+html.beauty-gpt-bg main .sticky.bg-surface:has(#plugins-store-page-search)::after {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Search is a ghost button, while sidebar-header search is a compound field. */
+html.beauty-gpt-active aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: transparent !important;
+}
+html.beauty-gpt-active aside.app-shell-left-panel button:is([aria-label="搜索"], [aria-label="Search"]):hover {
+  background: ${hoverSurface} !important;
+}
+html.beauty-gpt-active [data-sidebar-header-search] {
+  background: var(--bgpt-input-bg) !important;
+  color: var(--bgpt-text-primary) !important;
+  box-shadow: inset 0 0 0 1px var(--bgpt-border) !important;
+}
+html.beauty-gpt-active [data-sidebar-header-search]:focus-within {
+  outline: 2px solid var(--bgpt-accent) !important;
+  outline-offset: 2px;
+}
+html.beauty-gpt-active [data-sidebar-header-search] input#settings-search,
+html.beauty-gpt-active [data-sidebar-header-search] input {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  caret-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active [data-sidebar-header-search] input::placeholder,
+html.beauty-gpt-active [data-sidebar-header-search] svg {
+  color: var(--bgpt-text-secondary) !important;
+}
+
+/* App-shell rollout: stable semantic classes and data attributes, no build hashes. */
+html.beauty-gpt-active aside.app-shell-left-panel {
+  --color-surface: var(--bgpt-bg-sidebar) !important;
+  --color-surface-secondary: var(--bgpt-bg-sidebar) !important;
+  --app-color-background-surface: var(--bgpt-bg-sidebar) !important;
+  background: var(--bgpt-bg-sidebar) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active aside.app-shell-left-panel :is(.text-default, .sidebar-item) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active aside.app-shell-left-panel .sidebar-item[aria-current="page"] {
+  background: ${hoverSurface} !important;
+  color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active [data-composer-body] {
+  background: var(--bgpt-input-bg) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active [data-composer-body] .ProseMirror,
+html.beauty-gpt-active [data-composer-body] .ProseMirror [data-placeholder]::before {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [data-composer-body] .ProseMirror [data-placeholder]::before {
+  color: var(--bgpt-text-secondary) !important;
+}
+
+/* New semantic surfaces and full-page settings. Preserve control state and icon geometry. */
+html.beauty-gpt-active :is(.bg-primary, .bg-surface-primary, .bg-token-bg-primary) {
+  background-color: var(--bgpt-bg-primary) !important;
+}
+html.beauty-gpt-active :is(.bg-secondary, .bg-elevated-primary, .bg-elevated-secondary) {
+  background-color: var(--bgpt-bg-secondary) !important;
+}
+html.beauty-gpt-active #sidebar-header,
+html.beauty-gpt-active #sidebar-header :is(.bg-primary, .bg-surface-primary, .bg-token-bg-primary),
+html.beauty-gpt-active [data-bgpt-settings-nav] {
+  background: var(--bgpt-bg-sidebar) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings :is(h1, h2, h3, p, label, span, svg) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings :is(.text-primary, .text-token-text-primary) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings :is(.text-secondary, .text-token-text-secondary) {
+  color: var(--bgpt-text-secondary) !important;
+}
+html.beauty-gpt-active [data-bgpt-settings-nav] :is(a, button, [role="tab"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [data-bgpt-settings-nav] :is(a, button, [role="tab"]):hover {
+  background: ${hoverSurface} !important;
+}
+html.beauty-gpt-active [data-bgpt-settings-nav] :is([aria-current="page"], [aria-selected="true"], [data-state="active"]) {
+  background: ${softSurface} !important;
+  color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active :is(#prompt-textarea, #mobile-composer-prompt, [data-composer-surface] [contenteditable="true"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  caret-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active :is(#prompt-textarea, #mobile-composer-prompt)::placeholder,
+html.beauty-gpt-active #prompt-textarea [data-placeholder]::before {
+  color: var(--bgpt-text-secondary) !important;
 }
 
 /* 普通回复的 markdown-new-styling 绝不能套文稿块粉底 */
@@ -1876,6 +2344,10 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     "font-weight",
     "backdrop-filter",
     "-webkit-backdrop-filter",
+    "display",
+    "opacity",
+    "visibility",
+    "pointer-events",
   ];
 
   const TOKEN_PROPS = [
@@ -1996,6 +2468,14 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       "#stage-slideover-sidebar [data-sidebar-item]",
       "#stage-slideover-sidebar .truncate",
       "#history .truncate",
+      '[data-testid="create-new-chat-button"]',
+      '[data-testid="sidebar-new-chat-button"]',
+      '[data-testid="use-case-prompt-chips"]',
+      '[data-testid="use-case-prompt-chips"] button',
+      'picture img[src*="burrito-nux"]',
+      ".h-svh.w-screen",
+      '[class*="@container/thread"]',
+      '[data-testid="thread-layout"]',
       "#page-header [role='group'] .absolute",
       "#conversation-header-actions",
       "#conversation-header-actions button",
@@ -2041,6 +2521,219 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     }
   }
 
+  function parseRgb(color) {
+    const m = String(color || "").match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return null;
+    return [+m[1], +m[2], +m[3]];
+  }
+
+  function isNearBlack(color) {
+    const rgb = parseRgb(color);
+    if (!rgb) return false;
+    const alpha = String(color).match(/rgba\([^)]*,\s*([\d.]+)\s*\)$/);
+    if (alpha && Number(alpha[1]) < 0.95) return false;
+    return rgb[0] < 48 && rgb[1] < 48 && rgb[2] < 48;
+  }
+
+  function findSettingsBackControl() {
+    return document.querySelector('[data-testid="settings-back-button"], button[aria-label="返回应用"], a[aria-label="返回应用"], button[aria-label="Back to app"], a[aria-label="Back to app"]') ||
+      Array.from(document.querySelectorAll('a, button')).find((el) =>
+        /^(返回应用|Back to app)$/i.test((el.textContent || '').trim())
+      ) || null;
+  }
+
+  function isSettingsShell() {
+    return /\/settings(?:\/|$)/i.test(location.pathname || '') ||
+      /^#settings(?:\/|$|[?#])/i.test(location.hash || '') ||
+      !!findSettingsBackControl();
+  }
+
+  /** 标记当前 SPA 路由，便于全页设置/资料库等使用独立选择器 */
+  function syncRouteHints() {
+    const html = document.documentElement;
+    const path = location.pathname || "";
+    const hash = location.hash || "";
+    const settings = isSettingsShell();
+    const library =
+      /\/library|\/gpts|\/projects?(?:\/|$)/.test(path) ||
+      /^#(library|gpts|projects?)/i.test(hash);
+    html.classList.toggle("beauty-gpt-settings", settings);
+    if (!settings) {
+      document.querySelectorAll('[data-bgpt-settings-nav]').forEach((el) => el.removeAttribute('data-bgpt-settings-nav'));
+      document.querySelectorAll('[data-bgpt-settings-surface]').forEach((el) => {
+        clearInlinePropsOn(el);
+        el.removeAttribute('data-bgpt-settings-surface');
+      });
+    }
+    html.classList.toggle("beauty-gpt-library", library);
+  }
+
+  /** 同时包住侧栏与主聊天列的整页壳层 — 不能刷侧栏色 */
+  function isAppLayoutShell(el) {
+    if (!el?.querySelector || !el.getBoundingClientRect) return false;
+    const hasSidebar = !!el.querySelector(
+      "#history, [data-testid='create-new-chat-button'], nav[aria-label*='历史'], aside:has(#history)"
+    );
+    const hasMain = !!el.querySelector(
+      "#main, main, #thread, [data-scroll-root], [data-composer-surface='true'], [data-testid='thread-layout']"
+    );
+    if (!hasSidebar || !hasMain) return false;
+    const r = el.getBoundingClientRect();
+    return r.width >= window.innerWidth * 0.82 && r.height >= window.innerHeight * 0.45;
+  }
+
+  function resolveSidebarContainerFromHistory(history) {
+    if (!history) return null;
+    let el = history;
+    let fallback = history;
+    for (let i = 0; i < 14 && el; i++) {
+      if (
+        el.id === "stage-slideover-sidebar" ||
+        el.matches?.("aside, [data-testid='sidebar'], nav[aria-label*='历史'], nav[aria-label*='侧边栏']")
+      ) {
+        return el;
+      }
+      const parent = el.parentElement;
+      if (
+        parent?.matches?.(
+          ".relative.flex.h-full.w-full.overflow-hidden, .flex.h-svh.w-screen, .flex.h-full.w-screen, [class*='@container/thread']"
+        )
+      ) {
+        const kids = Array.from(parent.children).filter((c) => c.getBoundingClientRect().width > 0);
+        if (kids[0] && (kids[0] === el || kids[0].contains(el))) return kids[0];
+        return el;
+      }
+      if (!el.matches?.("main, #main, #thread, [data-scroll-root], [role='tabpanel']")) {
+        fallback = el;
+      }
+      el = parent;
+    }
+    return fallback;
+  }
+
+  /** 新版 ChatGPT 侧栏可能无 #stage-slideover-sidebar，用布局 + 锚点推断 */
+  function findSidebarRoots() {
+    const roots = new Set();
+    const add = (el) => {
+      if (!el || el === document.body || el === document.documentElement) return;
+      if (el.id === "beauty-gpt-root" || el.closest("#beauty-gpt-root")) return;
+      if (isAppLayoutShell(el)) return;
+      roots.add(el);
+    };
+
+    [
+      document.getElementById("stage-slideover-sidebar"),
+      document.querySelector('aside.app-shell-left-panel'),
+      document.querySelector('[data-testid="sidebar"]'),
+      document.querySelector('[data-testid="desktop-app-shell"] [aria-label="侧边栏"]'),
+      document.querySelector('[data-testid="desktop-app-shell"] [aria-label="Sidebar"]'),
+      document.querySelector("aside:has(#history)"),
+      document.querySelector("nav[aria-label='历史聊天记录']"),
+      document.querySelector("nav[aria-label='侧边栏']"),
+    ]
+      .filter(Boolean)
+      .forEach(add);
+
+    const history = document.getElementById("history");
+    const sidebarFromHistory = resolveSidebarContainerFromHistory(history);
+    if (sidebarFromHistory) add(sidebarFromHistory);
+
+    const header = document.getElementById("sidebar-header");
+    if (header && !header.closest?.("main, #main, #thread")) add(header);
+
+    document
+      .querySelectorAll(
+        '.relative.flex.h-full.w-full.overflow-hidden, .flex.h-svh.w-screen, .flex.h-full.w-screen, [class*="@container/thread"]'
+      )
+      .forEach((shell) => {
+        const children = Array.from(shell.children).filter((c) => c.getBoundingClientRect().width > 0);
+        if (children.length < 2) return;
+        const first = children[0];
+        const second = children[1];
+        const secondIsMain =
+          second.matches?.("main, #main, #thread, [data-scroll-root]") ||
+          !!second.querySelector?.(
+            "#main, main, #thread, [data-scroll-root], [data-composer-surface='true'], [data-testid='thread-layout']"
+          );
+        if (secondIsMain && first.getBoundingClientRect().width < window.innerWidth * 0.42) {
+          add(first);
+        }
+      });
+
+    document.querySelectorAll("a, button").forEach((el) => {
+      const text = (el.textContent || "").trim();
+      if (text !== "新聊天" && text !== "New chat") return;
+      let p = el.parentElement;
+      for (let i = 0; i < 14 && p; i++) {
+        if (p.querySelector("#history") || p.id?.includes("sidebar") || p.matches?.("aside, nav")) {
+          add(p);
+          break;
+        }
+        p = p.parentElement;
+      }
+    });
+
+    return Array.from(roots);
+  }
+
+  function findComposerSurfaces() {
+    const surfaces = new Set();
+    document.querySelectorAll("[data-composer-surface], [data-composer-body], [data-testid='composer']").forEach((el) => surfaces.add(el));
+    document.querySelectorAll('form[data-type="unified-composer"]').forEach((form) => {
+      const inner = form.querySelector("[data-composer-surface='true']");
+      surfaces.add(inner || form);
+    });
+    const editable = document.querySelector(
+      "#prompt-textarea, #mobile-composer-prompt, .ProseMirror, [contenteditable='true'][data-placeholder], textarea[name='prompt-textarea']"
+    );
+    if (editable) {
+      const shell =
+        editable.closest("[data-composer-surface], [data-composer-body]") ||
+        editable.closest("form") ||
+        editable.closest('[class*="rounded"]');
+      if (shell) surfaces.add(shell);
+    }
+    return Array.from(surfaces);
+  }
+
+  function collectDomDiagnostics() {
+    const sidebar = findSidebarRoots()[0] || null;
+    const composer = findComposerSurfaces()[0] || null;
+    const html = document.documentElement;
+    return {
+      url: location.href,
+      path: location.pathname,
+      hash: location.hash,
+      beautyActive: html.classList.contains("beauty-gpt-active"),
+      beautyBg: html.classList.contains("beauty-gpt-bg"),
+      beautySettings: html.classList.contains("beauty-gpt-settings"),
+      isSettingsShell: isSettingsShell(),
+      sidebarRoots: findSidebarRoots().map((el) => ({
+        tag: el.tagName,
+        id: el.id || null,
+        testid: el.getAttribute("data-testid"),
+        cls: String(el.className || "").slice(0, 160),
+        bg: getComputedStyle(el).backgroundColor,
+      })),
+      composer: composer
+        ? {
+            tag: composer.tagName,
+            id: composer.id || null,
+            testid: composer.getAttribute("data-testid"),
+            cls: String(composer.className || "").slice(0, 160),
+            bg: getComputedStyle(composer).backgroundColor,
+          }
+        : null,
+      ids: {
+        stageSlideover: !!document.getElementById("stage-slideover-sidebar"),
+        history: !!document.getElementById("history"),
+        main: !!document.getElementById("main"),
+        thread: !!document.getElementById("thread"),
+      },
+      styleLen: document.getElementById("beauty-gpt-theme")?.textContent?.length || 0,
+    };
+  }
+
   function syncColorMode(vars) {
     const html = document.documentElement;
     if (!vars) {
@@ -2076,30 +2769,206 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
 
   function paintDomTokens(vars) {
     const html = document.documentElement;
+    const body = document.body;
     if (!vars) {
-      TOKEN_PROPS.forEach((k) => html.style.removeProperty(k));
+      TOKEN_PROPS.forEach((k) => {
+        html.style.removeProperty(k);
+        body?.style?.removeProperty(k);
+      });
       return;
     }
-    html.style.setProperty("--composer-surface-primary", vars.inputBg, "important");
-    html.style.setProperty("--sidebar-surface-primary", vars.bgSidebar, "important");
-    html.style.setProperty("--sidebar-surface-secondary", vars.bgSecondary, "important");
-    html.style.setProperty("--main-surface-primary", vars.bgPrimary, "important");
-    html.style.setProperty("--main-surface-secondary", vars.bgSecondary, "important");
-    html.style.setProperty("--text-primary", vars.textPrimary, "important");
-    html.style.setProperty("--text-secondary", vars.textSecondary, "important");
-    html.style.setProperty("--text-tertiary", vars.textSecondary, "important");
-    html.style.setProperty("--bg-primary", vars.bgPrimary, "important");
-    html.style.setProperty("--bg-elevated-primary", vars.bgSecondary, "important");
-    html.style.setProperty("--bg-elevated-secondary", vars.bgSecondary, "important");
-    html.style.setProperty("--code-block-surface", vars.bgSecondary, "important");
-    html.style.setProperty("--surface-primary", vars.bgPrimary, "important");
-    html.style.setProperty("--surface-secondary", vars.bgSecondary, "important");
-    html.style.setProperty("--token-bg-primary", vars.bgPrimary, "important");
-    html.style.setProperty("--token-bg-secondary", vars.bgSecondary, "important");
-    html.style.setProperty("--token-bg-tertiary", vars.bgSecondary, "important");
-    html.style.setProperty("--token-sidebar-surface-primary", vars.bgSidebar, "important");
-    html.style.setProperty("--token-main-surface-primary", vars.bgPrimary, "important");
-    html.style.setProperty("--token-main-surface-secondary", vars.bgSecondary, "important");
+    const tokenMap = {
+      "--composer-surface-primary": vars.inputBg,
+      "--composer-surface-secondary": vars.bgSecondary,
+      "--sidebar-surface-primary": vars.bgSidebar,
+      "--sidebar-surface-secondary": vars.bgSecondary,
+      "--sidebar-surface-tertiary": withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.06 : 0.04),
+      "--main-surface-primary": vars.bgPrimary,
+      "--main-surface-secondary": vars.bgSecondary,
+      "--main-surface-tertiary": vars.bgSecondary,
+      "--text-primary": vars.textPrimary,
+      "--text-secondary": vars.textSecondary,
+      "--text-tertiary": vars.textSecondary,
+      "--bg-primary": vars.bgPrimary,
+      "--bg-secondary": vars.bgSecondary,
+      "--bg-tertiary": vars.bgSecondary,
+      "--bg-elevated-primary": vars.bgSecondary,
+      "--bg-elevated-secondary": vars.bgSecondary,
+      "--code-block-surface": vars.bgSecondary,
+      "--surface-primary": vars.bgPrimary,
+      "--surface-secondary": vars.bgSecondary,
+      "--surface-tertiary": vars.bgSecondary,
+      "--token-bg-primary": vars.bgPrimary,
+      "--token-bg-secondary": vars.bgSecondary,
+      "--token-bg-tertiary": vars.bgSecondary,
+      "--token-sidebar-surface-primary": vars.bgSidebar,
+      "--token-sidebar-surface-secondary": vars.bgSecondary,
+      "--token-main-surface-primary": vars.bgPrimary,
+      "--token-main-surface-secondary": vars.bgSecondary,
+      "--token-text-primary": vars.textPrimary,
+      "--token-text-secondary": vars.textSecondary,
+      "--token-text-tertiary": vars.textSecondary,
+      "--token-border-default": vars.border,
+      "--token-border-light": vars.border,
+      "--border-light": vars.border,
+      "--border-medium": vars.border,
+      "--ds-bg-sidebar": vars.bgSidebar,
+      "--ds-bg-primary": vars.bgPrimary,
+      "--ds-bg-secondary": vars.bgSecondary,
+      "--color-bg-primary": vars.bgPrimary,
+      "--color-bg-secondary": vars.bgSecondary,
+      "--color-surface-primary": vars.bgPrimary,
+      "--color-surface-secondary": vars.bgSecondary,
+    };
+    Object.entries(tokenMap).forEach(([key, value]) => {
+      html.style.setProperty(key, value, "important");
+      body?.style?.setProperty(key, value, "important");
+    });
+  }
+
+  function paintSidebarText(vars) {
+    findSidebarRoots().forEach((root) => {
+      if (isAppLayoutShell(root) || root.matches("aside.app-shell-left-panel")) return;
+      root
+        .querySelectorAll(
+          "a, button, .__menu-item, [data-sidebar-item], .__menu-label, nav a, nav button, #history a, #history button"
+        )
+        .forEach((el) => {
+          if (el.closest("[data-composer-surface='true'], #beauty-gpt-root")) return;
+          const active =
+            el.getAttribute("data-active") != null ||
+            el.getAttribute("aria-current") === "page" ||
+            el.getAttribute("aria-selected") === "true" ||
+            !!el.closest("[data-active], [aria-current='page']");
+          const isLabel = el.matches?.(".__menu-label");
+          setInline(el, "color", active ? vars.accent : isLabel ? vars.textSecondary : vars.textPrimary);
+          el.querySelectorAll("svg").forEach((svg) => {
+            setInline(svg, "color", active ? vars.accent : vars.textPrimary);
+            setInline(svg, "opacity", "1");
+          });
+        });
+    });
+  }
+
+  function paintSidebarChain(vars) {
+    const dark = isDark(vars.bgPrimary);
+    const sidebarBorder = dark
+      ? withAlpha(vars.border, 0.95)
+      : withAlpha(vars.textPrimary, 0.24);
+    const roots = findSidebarRoots();
+    for (const root of roots) {
+      if (isAppLayoutShell(root)) continue;
+      if (root.matches?.("main, #main, #thread, [data-scroll-root], [role='tabpanel']")) continue;
+      setInline(root, "background-color", vars.bgSidebar);
+      setInline(root, "background", vars.bgSidebar);
+      setInline(root, "color", vars.textPrimary);
+      setInline(root, "border-right", `1px solid ${sidebarBorder}`);
+    }
+
+    const sidebarSelector = roots
+      .map((el) => {
+        if (el.id) return `#${CSS.escape(el.id)}`;
+        return null;
+      })
+      .filter(Boolean)
+      .join(", ");
+
+    const genericSelectors = [
+      "#stage-slideover-sidebar [class*='bg-black']",
+      "#stage-slideover-sidebar [class*='bg-surface-primary']",
+      "#stage-slideover-sidebar [class*='bg-surface-secondary']",
+      "#stage-slideover-sidebar [class*='bg-token-main-surface']",
+      "#stage-slideover-sidebar [class*='bg-token-bg-']",
+      "aside:has(#history) [class*='bg-black']",
+      "aside:has(#history) [class*='bg-surface-primary']",
+      '[data-testid="sidebar"] [class*="bg-black"]',
+      '[data-testid="sidebar"] [class*="bg-surface-primary"]',
+      ".relative.flex.h-full.w-full.overflow-hidden > :first-child [class*='bg-black']",
+      ".flex.h-svh.w-screen > :first-child [class*='bg-black']",
+    ];
+    if (sidebarSelector) genericSelectors.push(`${sidebarSelector} [class*='bg-black']`);
+
+    document.querySelectorAll(genericSelectors.join(", ")).forEach((el) => {
+      if (el.closest("[data-composer-surface='true']")) return;
+      if (
+        el.matches?.(".__menu-item, [data-sidebar-item], button, a") ||
+        el.closest?.(".__menu-item, [data-sidebar-item]")
+      ) {
+        return;
+      }
+      setInline(el, "background-color", vars.bgSidebar);
+      setInline(el, "background", vars.bgSidebar);
+      setInline(el, "color", vars.textPrimary);
+    });
+  }
+
+  function paintMainColumn(vars, wallpaperOn) {
+    const selectors = [
+      ".flex.h-svh.w-screen > :last-child",
+      ".flex.h-full.w-screen > :last-child",
+      ".relative.flex.h-full.w-full.overflow-hidden > :not(:first-child)",
+      "#main",
+      "main",
+      "#thread",
+      "[data-scroll-root]",
+      "[data-testid='thread-layout']",
+    ];
+    document.querySelectorAll(selectors.join(", ")).forEach((el) => {
+      if (el.closest("#stage-slideover-sidebar, aside:has(#history), [data-testid='sidebar']")) return;
+      if (el.closest("#beauty-gpt-root")) return;
+      if (wallpaperOn) {
+        setInline(el, "background-color", "transparent");
+        setInline(el, "background", "transparent");
+        setInline(el, "background-image", "none");
+      } else {
+        setInline(el, "background-color", vars.bgPrimary);
+        setInline(el, "background", vars.bgPrimary);
+      }
+      setInline(el, "color", vars.textPrimary);
+    });
+  }
+
+  // Full-page settings no longer consistently expose the old Radix tab list.
+  // Mark structural surfaces only; never paint text runs based on their color.
+  function paintSettingsShell(vars) {
+    if (!isSettingsShell()) return;
+    const back = findSettingsBackControl();
+    const roots = new Set(document.querySelectorAll(
+      '[data-settings-tab-list], aside, nav, [data-testid="settings-sidebar"]'
+    ));
+    if (back) {
+      let node = back.parentElement;
+      for (let i = 0; i < 12 && node && node !== document.body; i++, node = node.parentElement) {
+        const r = node.getBoundingClientRect();
+        if (r.width > window.innerWidth * 0.45) break;
+        if (r.height > window.innerHeight * 0.5) roots.add(node);
+      }
+    }
+    roots.forEach((root) => {
+      if (root.closest('#beauty-gpt-root, main, [role="main"], [role="tabpanel"]')) return;
+      root.setAttribute('data-bgpt-settings-nav', '');
+    });
+    document.querySelectorAll('main, [role="main"], [role="tabpanel"]').forEach((el) => {
+      setInline(el, 'background', vars.bgPrimary);
+      setInline(el, 'color', vars.textPrimary);
+    });
+    // Hashed CSS classes also appear in the new shell. Repair opaque structural
+    // backgrounds without assigning backgrounds to labels, icons or controls.
+    document.querySelectorAll('div, section, header, aside, nav').forEach((el) => {
+      if (el.closest('#beauty-gpt-root, button, a, [role="switch"], [role="menu"], [role="listbox"], [popover]')) return;
+      if (!isNearBlack(getComputedStyle(el).backgroundColor)) return;
+      el.setAttribute('data-bgpt-settings-surface', '');
+      setInline(el, 'background', el.closest('[data-bgpt-settings-nav]') ? vars.bgSidebar : vars.bgPrimary);
+      setInline(el, 'color', vars.textPrimary);
+    });
+    // Explicit solid utility surfaces may sit between body and main in the new shell.
+    document.querySelectorAll('[class~="bg-black"], [class~="bg-white"], [class~="bg-token-bg-primary"], [class~="bg-surface-primary"]').forEach((el) => {
+      if (el.closest('#beauty-gpt-root, [role="menu"], [role="listbox"]')) return;
+      if (el.matches('span, p, label, h1, h2, h3, svg, button, a')) return;
+      el.setAttribute('data-bgpt-settings-surface', '');
+      setInline(el, 'background', el.closest('[data-bgpt-settings-nav]') ? vars.bgSidebar : vars.bgPrimary);
+      setInline(el, 'color', vars.textPrimary);
+    });
   }
 
   /**
@@ -2116,16 +2985,17 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     }
 
     const soft = withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.08 : 0.05);
+    const wallpaperOn = !!(currentWallpaper.enabled && currentWallpaper.url);
 
-    document
-      .querySelectorAll(
-        "#stage-slideover-sidebar, #stage-slideover-sidebar .bg-token-sidebar-surface-primary, #stage-slideover-sidebar [class*='sidebar-surface'], .stage-sidebar-pure-surface"
-      )
-      .forEach((el) => {
-        setInline(el, "background-color", vars.bgSidebar);
-        setInline(el, "background", vars.bgSidebar);
-        setInline(el, "color", vars.textPrimary);
-      });
+    syncRouteHints();
+
+    paintSidebarChain(vars);
+    paintMainColumn(vars, wallpaperOn);
+    paintSidebarText(vars);
+    paintSettingsShell(vars);
+    // Chat-only hardening below must not undo solid settings surfaces when
+    // wallpaper is enabled or reinterpret settings controls as chat widgets.
+    if (isSettingsShell()) return;
 
     document
       .querySelectorAll(
@@ -2137,20 +3007,26 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       });
 
     document
-      .querySelectorAll("#stage-slideover-sidebar .__menu-item, #stage-slideover-sidebar [data-sidebar-item]")
+      .querySelectorAll(
+        "#stage-slideover-sidebar .__menu-item, #stage-slideover-sidebar [data-sidebar-item], aside:has(#history) .__menu-item, aside:has(#history) [data-sidebar-item], [data-testid='sidebar'] .__menu-item, [data-testid='sidebar'] [data-sidebar-item]"
+      )
       .forEach((el) => {
-        setInline(el, "background", "transparent");
-        setInline(el, "background-color", "transparent");
-        setInline(el, "background-image", "none");
-        setInline(el, "box-shadow", "none");
-        setInline(el, "border", "none");
-        setInline(el, "outline", "none");
-        setInline(el, "color", vars.textPrimary);
+        const active =
+          el.getAttribute("data-active") != null ||
+          el.getAttribute("aria-current") === "page";
+        setInline(el, "color", active ? vars.accent : vars.textPrimary);
+        if (!active) {
+          el.style.removeProperty("background");
+          el.style.removeProperty("background-color");
+        }
       });
 
     document
-      .querySelectorAll("#stage-slideover-sidebar .truncate, #history .truncate")
+      .querySelectorAll(
+        "#stage-slideover-sidebar .truncate, #history .truncate, aside:has(#history) .truncate, [data-testid='sidebar'] .truncate"
+      )
       .forEach((el) => {
+        if (el.closest("svg, [data-composer-surface='true']")) return;
         setInline(el, "background", "transparent");
         setInline(el, "color", vars.textPrimary);
         setInline(el, "font-weight", "400");
@@ -2217,43 +3093,106 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       .forEach((el) => {
         setInline(el, "background", "transparent");
         setInline(el, "background-color", "transparent");
-        setInline(el, "color", vars.textSecondary);
+        setInline(el, "color", vars.textPrimary);
         setInline(el, "border", "none");
         setInline(el, "box-shadow", "none");
+        el.querySelectorAll("svg").forEach((svg) => {
+          setInline(svg, "color", vars.textPrimary);
+          setInline(svg, "fill", "currentColor");
+          setInline(svg, "opacity", "1");
+        });
       });
 
-    // Live tooltips: readable dark chrome (exclude menus)
-    const isMenuNode = (el) =>
-      el.getAttribute("role") === "menu" ||
-      el.hasAttribute("data-radix-menu-content") ||
-      el.closest?.("[data-radix-menu-content], [role='menu']");
-
+    // 侧栏「新聊天」带边框按钮
     document
       .querySelectorAll(
         [
-          '[role="tooltip"]',
-          "[data-radix-tooltip-content]",
-          '[popover="hint"] > div',
-          '[data-radix-popper-content-wrapper] > [data-state="delayed-open"]',
-          '[data-radix-popper-content-wrapper] > [data-state="instant-open"]',
+          '#stage-slideover-sidebar [data-testid="create-new-chat-button"]',
+          '#stage-slideover-sidebar [data-testid="sidebar-new-chat-button"]',
+          "#stage-slideover-sidebar a.__menu-item.border",
+          "#stage-slideover-sidebar .__menu-item-border",
+          "#sidebar-header a.__menu-item",
+          "#sidebar-header button.__menu-item",
         ].join(", ")
       )
       .forEach((el) => {
-        if (isMenuNode(el)) return;
-        if (el.classList?.contains("bg-transparent")) return;
-        const cls = typeof el.className === "string" ? el.className : "";
-        if (cls.includes("bg-transparent") && el.hasAttribute("popover")) return;
-        setInline(el, "background", "#1f1f1f");
-        setInline(el, "background-color", "#1f1f1f");
-        setInline(el, "color", "#f5f5f5");
-        setInline(el, "border-color", "#3a3a3a");
-        el.querySelectorAll("[class*='bg-token'], [class*='text-token']").forEach((child) => {
-          if (isMenuNode(child)) return;
-          setInline(child, "background", "#1f1f1f");
-          setInline(child, "background-color", "#1f1f1f");
-          setInline(child, "color", "#f5f5f5");
-        });
+        setInline(el, "background", "transparent");
+        setInline(el, "background-color", "transparent");
+        setInline(el, "color", vars.textPrimary);
+        setInline(el, "border-color", vars.border);
+        setInline(el, "box-shadow", "none");
       });
+
+    // 新版首页 burrito-nux 装饰背景（SPA 重绘后需反复压制）
+    document
+      .querySelectorAll(
+        [
+          'picture img[src*="burrito-nux"]',
+          'picture source[srcset*="burrito-nux"]',
+          'img[src*="burrito-nux"]',
+          '[data-testid="nux-background"]',
+          '[data-testid="landing-background"]',
+        ].join(", ")
+      )
+      .forEach((el) => {
+        const pic = el.closest("picture") || (el.tagName === "PICTURE" ? el : null);
+        const target = pic || el;
+        setInline(target, "opacity", "0");
+        setInline(target, "visibility", "hidden");
+        setInline(target, "pointer-events", "none");
+        if (!wallpaperOn) setInline(target, "display", "none");
+        const wrap = target.closest('[class*="fixed"], [class*="absolute"]');
+        if (
+          wrap &&
+          !wrap.closest("#stage-slideover-sidebar") &&
+          !wrap.querySelector("[data-composer-surface='true']")
+        ) {
+          setInline(wrap, "background-image", "none");
+          if (!wallpaperOn) {
+            setInline(wrap, "background-color", vars.bgPrimary);
+            setInline(wrap, "background", vars.bgPrimary);
+          } else {
+            setInline(wrap, "background-color", "transparent");
+            setInline(wrap, "background", "transparent");
+          }
+        }
+      });
+
+    // 线程主区（勿涂整页 flex 壳层，侧栏/主区由 paintSidebarChain + paintMainColumn 分管）
+    document.querySelectorAll('[data-testid="thread-layout"]').forEach((el) => {
+      if (el.closest("#stage-slideover-sidebar, aside, [data-testid='sidebar']")) return;
+      if (wallpaperOn) {
+        setInline(el, "background-color", "transparent");
+        setInline(el, "background", "transparent");
+        setInline(el, "background-image", "none");
+      } else {
+        setInline(el, "background-color", vars.bgPrimary);
+        setInline(el, "background", vars.bgPrimary);
+      }
+      setInline(el, "color", vars.textPrimary);
+    });
+
+    // 首页建议芯片
+    document
+      .querySelectorAll(
+        '[data-testid="use-case-prompt-chips"], [data-testid="use-case-prompt-chips"] > div, [data-testid="use-case-prompt-chips"] .group.relative'
+      )
+      .forEach((el) => {
+        setInline(el, "background", "transparent");
+        setInline(el, "background-color", "transparent");
+        setInline(el, "color", vars.textPrimary);
+      });
+
+    document.querySelectorAll('[data-testid="use-case-prompt-chips"] button').forEach((el) => {
+      setInline(el, "background", soft);
+      setInline(el, "background-color", soft);
+      setInline(el, "color", vars.textSecondary);
+      setInline(el, "border-color", vars.border);
+      setInline(el, "border-radius", "9999px");
+    });
+
+    // Tooltip styling is CSS-only so freshly mounted portals and settings
+    // tooltips get the same colors without painting their text nodes inline.
 
     // Outer menu chrome only (inner picker must not get shadow/glow)
     document
@@ -2329,16 +3268,34 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         }
       });
 
-    document.querySelectorAll("[data-composer-surface='true']").forEach((el) => {
-      setInline(el, "background-color", vars.inputBg);
-      setInline(el, "background", vars.inputBg);
-      setInline(el, "border-color", vars.border);
-      setInline(el, "color", vars.textPrimary);
-      const cls = String(el.className || "");
-      if (!cls.includes("corner-superellipse") && !el.closest?.('[class*="corner-superellipse"]')) {
-        setInline(el, "border-radius", "28px");
+    findComposerSurfaces().forEach((surface) => {
+      setInline(surface, "background-color", vars.inputBg);
+      setInline(surface, "background", vars.inputBg);
+      setInline(surface, "border-color", vars.border);
+      setInline(surface, "color", vars.textPrimary);
+      const cls = String(surface.className || "");
+      if (!cls.includes("corner-superellipse") && !surface.closest?.('[class*="corner-superellipse"]')) {
+        setInline(surface, "border-radius", "28px");
+      }
+      if (isNearBlack(getComputedStyle(surface).backgroundColor)) {
+        setInline(surface, "background-color", vars.inputBg);
+        setInline(surface, "background", vars.inputBg);
       }
     });
+
+    document
+      .querySelectorAll(
+        '#thread-bottom [class*="bg-black"], .composer-parent [class*="bg-black"], [data-composer-surface="true"][class*="bg-black"], form[data-type="unified-composer"] [class*="bg-black"]'
+      )
+      .forEach((el) => {
+        if (!el.closest("#thread-bottom, .composer-parent, form[data-type='unified-composer']")) return;
+        if (!el.querySelector?.("[data-composer-surface='true']") && !el.matches?.("[data-composer-surface='true']")) {
+          return;
+        }
+        setInline(el, "background-color", vars.inputBg);
+        setInline(el, "background", vars.inputBg);
+        setInline(el, "color", vars.textPrimary);
+      });
 
     // Composer 外层壳透明，避免双层输入框
     document
@@ -2351,8 +3308,6 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         setInline(el, "background-image", "none");
         setInline(el, "box-shadow", "none");
       });
-
-    const wallpaperOn = !!(currentWallpaper.enabled && currentWallpaper.url);
 
     document
       .querySelectorAll(
@@ -2698,7 +3653,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
 
     document.querySelectorAll("input[type='search'], input[type='text']").forEach((el) => {
       if (el.closest("[data-composer-surface], form[data-type='unified-composer']")) return;
-      setInline(el, "background-color", vars.inputBg);
+      setInline(el, "background-color", el.matches(".bg-transparent") ? "transparent" : vars.inputBg);
       setInline(el, "color", vars.textPrimary);
       setInline(el, "border-color", vars.border);
     });
@@ -3220,6 +4175,9 @@ html.beauty-gpt-bg #thread-bottom,
 html.beauty-gpt-bg [class*="threadFooter"],
 html.beauty-gpt-bg [class*="ContentFade"],
 html.beauty-gpt-bg .relative.flex.h-full.w-full.overflow-hidden,
+html.beauty-gpt-bg .h-svh.w-screen,
+html.beauty-gpt-bg [class*="@container/thread"],
+html.beauty-gpt-bg [data-testid="thread-layout"],
 html.beauty-gpt-bg [data-testid="use-case-prompt-chips"],
 html.beauty-gpt-bg [data-testid="use-case-prompt-chips"] > div,
 html.beauty-gpt-bg [data-testid="use-case-prompt-chips"] .group.relative,
@@ -3228,6 +4186,18 @@ html.beauty-gpt-bg #page-header[class*="bg-token"] {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
+}
+
+/* 壁纸模式：彻底隐藏 GPT 原生首页装饰图 */
+html.beauty-gpt-bg picture:has(img[src*="burrito-nux"]),
+html.beauty-gpt-bg picture:has(source[srcset*="burrito-nux"]),
+html.beauty-gpt-bg img[src*="burrito-nux"],
+html.beauty-gpt-bg [data-testid="nux-background"],
+html.beauty-gpt-bg [data-testid="landing-background"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 html.beauty-gpt-bg .bg-surface-primary:has(button[aria-label="语音设置"]),
@@ -3348,20 +4318,61 @@ html.beauty-gpt-bg #stage-slideover-sidebar,
 html.beauty-gpt-bg #stage-slideover-sidebar > div,
 html.beauty-gpt-bg .stage-sidebar-pure-surface,
 html.beauty-gpt-bg .bg-token-sidebar-surface-primary,
-html.beauty-gpt-bg [class*="bg-token-sidebar-surface"] {
+html.beauty-gpt-bg [class*="bg-token-sidebar-surface"],
+html.beauty-gpt-bg [data-testid="sidebar"],
+html.beauty-gpt-bg aside:has(#history),
+html.beauty-gpt-bg #sidebar-header,
+html.beauty-gpt-bg #history,
+html.beauty-gpt-bg nav[aria-label="历史聊天记录"] {
   background-color: var(--bgpt-bg-sidebar, ${bgPrimary}) !important;
   background: var(--bgpt-bg-sidebar, ${bgPrimary}) !important;
+}
+
+html.beauty-gpt-bg.beauty-gpt-settings main,
+html.beauty-gpt-bg.beauty-gpt-settings [role="main"],
+html.beauty-gpt-bg.beauty-gpt-settings [role="tabpanel"] {
+  background: var(--bgpt-bg-primary, ${bgPrimary}) !important;
+  background-color: var(--bgpt-bg-primary, ${bgPrimary}) !important;
 }
 
 html.beauty-gpt-bg #thread-bottom-container::before,
 html.beauty-gpt-bg #thread-bottom-container::after,
 html.beauty-gpt-bg [class*="ContentFade"]::before,
 html.beauty-gpt-bg [class*="ContentFade"]::after {
-  background: linear-gradient(
-    to top,
-    ${withAlpha(bgPrimary, 0.45)} 15%,
-    transparent
-  ) !important;
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* A separate inert sticky spacer paints the conversation-bottom fade above
+   the disclaimer. It is outside data-thread-scroll-footer in the new layout. */
+html.beauty-gpt-bg .thread-scroll-container [aria-hidden="true"].pointer-events-none.sticky.bottom-0 > [aria-hidden="true"].pointer-events-none.bg-gradient-to-t.from-surface {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The app-shell footer owns a full-width decorative surface behind the
+   composer. Clear only its inert direct child, never the composer or menus. */
+html.beauty-gpt-bg [data-thread-scroll-footer="true"],
+html.beauty-gpt-bg [data-thread-scroll-footer="true"]::before,
+html.beauty-gpt-bg [data-thread-scroll-footer="true"]::after,
+html.beauty-gpt-bg [data-thread-scroll-footer="true"] > [aria-hidden="true"].pointer-events-none {
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-bg [data-thread-scroll-footer="true"] > [aria-hidden="true"].pointer-events-none::before,
+html.beauty-gpt-bg [data-thread-scroll-footer="true"] > [aria-hidden="true"].pointer-events-none::after {
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 /* 壁纸模式下仍保持用户气泡可见 */
@@ -3698,6 +4709,10 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     const html = document.documentElement;
     if (!vars) {
       html.classList.remove("beauty-gpt-active");
+      document.querySelectorAll('[data-bgpt-settings-nav], [data-bgpt-settings-surface]').forEach((el) => {
+        el.removeAttribute('data-bgpt-settings-nav');
+        el.removeAttribute('data-bgpt-settings-surface');
+      });
       // 默认主题也要保留壁纸：不在这里强拆 beauty-gpt-bg / video
       const el = document.getElementById(STYLE_ID);
       if (el) el.textContent = "";
@@ -3713,6 +4728,7 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
       return;
     }
     html.classList.add("beauty-gpt-active");
+    syncRouteHints();
     syncColorMode(vars);
     paintDomTokens(vars);
     const styleEl = ensureStyleEl();
@@ -3746,6 +4762,10 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     if (!document.documentElement.classList.contains("beauty-gpt-active")) {
       document.documentElement.classList.add("beauty-gpt-active");
     }
+    // ChatGPT SPA 会重置 token / dark 类，每次 DOM 变动都需重新注入
+    syncRouteHints();
+    syncColorMode(vars);
+    paintDomTokens(vars);
     const opts = options || {};
     const mode =
       opts.mode ||
@@ -3967,6 +4987,8 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     resolveWallpaperUrl,
     resolveWallpaperMedia,
     ensureThemeAlive,
+    syncRouteHints,
+    collectDomDiagnostics,
     isChatStreaming,
     loadState,
     resolveActiveVars,

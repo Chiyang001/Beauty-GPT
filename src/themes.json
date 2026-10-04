@@ -33,17 +33,17 @@
     "preview": ["#fff5f8", "#ffe8ef", "#e85d8e"],
     "bgImage": "assets/themes/sakura.png",
     "vars": {
-      "bgPrimary": "#fff5f8",
-      "bgSecondary": "#ffe8ef",
-      "bgSidebar": "#ffd6e4",
-      "textPrimary": "#4a2c38",
-      "textSecondary": "#8a5a6c",
-      "accent": "#e85d8e",
-      "accentHover": "#d4487a",
-      "border": "#f2c4d4",
-      "inputBg": "#fff8fb",
-      "bubbleUser": "#ffd0e0",
-      "bubbleAssistant": "#fff0f5"
+      "bgPrimary": "#fff8fa",
+      "bgSecondary": "#ffe0eb",
+      "bgSidebar": "#e4a0b8",
+      "textPrimary": "#1a0810",
+      "textSecondary": "#4a2838",
+      "accent": "#b83868",
+      "accentHover": "#962f56",
+      "border": "#b07088",
+      "inputBg": "#ffffff",
+      "bubbleUser": "#f0b8d0",
+      "bubbleAssistant": "#fff0f6"
     }
   },
   "cyber": {
