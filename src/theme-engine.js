@@ -247,6 +247,9 @@
     const dark = isDark(vars.bgPrimary);
     const rootVars = buildCssVariables(vars);
     const accentFg = contrastOn(vars.accent);
+    // Images/plugins may not mount a chat composer at all. Detect the shared
+    // anonymous shell from its header/login/product-card markers as well.
+    const guestScope = 'html.beauty-gpt-active:has([data-mobile-composer][data-logged-out], [data-ds-top-chrome] [data-login-button], [data-octane-product-card], [data-mobile-settings-modal])';
     const hoverSurface = withAlpha(vars.accent, dark ? 0.14 : 0.1);
     const softSurface = withAlpha(vars.textPrimary, dark ? 0.08 : 0.05);
     const sidebarHover = withAlpha(vars.textPrimary, dark ? 0.12 : 0.1);
@@ -1250,101 +1253,156 @@ html.beauty-gpt-active :is([data-composer-surface], [data-composer-body]) button
 /* Logged-out lightweight shell uses StyleX classes and semantic data markers,
    rather than the authenticated app's token utilities. Keep native visibility,
    modal positioning, textarea sizing and responsive layout untouched. */
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-ds-top-chrome], [data-ds-composer], [data-slot="header"], [data-header-wordmark], #ds-sidebar, [data-mobile-landing-heading]) {
+${guestScope} :is([data-ds-top-chrome], [data-ds-composer], [data-slot="header"], [data-header-wordmark], #ds-sidebar, [data-mobile-landing-heading]) {
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-header-wordmark], [data-mobile-landing-heading], #ds-sidebar) :is(span, svg, p) {
+${guestScope} :is([data-header-wordmark], [data-mobile-landing-heading], #ds-sidebar) :is(span, svg, p) {
   color: inherit !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-w-component="button"], [data-w-component="link-button"], button[aria-controls="ds-sidebar"]) {
+${guestScope} :is([data-w-component="button"], [data-w-component="link-button"], button[aria-controls="ds-sidebar"]) {
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][data-variant="secondary"] {
+${guestScope} [data-w-component][data-variant="secondary"] {
   background: var(--bgpt-bg-secondary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-w-component][data-variant="primary"], [data-start-voice], [data-mobile-composer] [data-composer-submit]) {
+${guestScope} :is([data-w-component][data-variant="primary"], [data-start-voice], [data-mobile-composer] [data-composer-submit]) {
   background: var(--bgpt-accent) !important;
   color: ${accentFg} !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component] :is(span, svg) {
+${guestScope} [data-w-component] :is(span, svg) {
   color: inherit !important;
 }
 /* Native primary/voice paint lives on ::before, independently of the button.
    Inherit the themed fill while preserving native focus/hover geometry. */
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component]::before {
+${guestScope} [data-w-component]::before {
   background: inherit !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][data-variant="ghost"]:hover,
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][aria-pressed="true"] {
+${guestScope} [data-w-component]::before,
+${guestScope} [data-w-component]::after {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+${guestScope} [data-w-component][data-variant="primary"] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+${guestScope} :is([data-header-wordmark], [data-octane-product-card-trigger]) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+${guestScope} :is([data-header-wordmark], [data-octane-product-card-trigger]):hover {
   background: ${hoverSurface} !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer] nav:has([data-octane-native-image-picker-trigger]) {
+${guestScope} :is([data-header-wordmark], [data-octane-product-card-trigger])::before,
+${guestScope} :is([data-header-wordmark], [data-octane-product-card-trigger])::after {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+${guestScope} [data-octane-product-card] > [aria-hidden="true"][data-tone] {
+  background: linear-gradient(135deg, ${withAlpha(vars.accent, .32)}, var(--bgpt-bg-secondary)) !important;
+}
+${guestScope} [data-w-component][data-variant="ghost"]:hover,
+${guestScope} [data-w-component][aria-pressed="true"] {
+  background: ${hoverSurface} !important;
+}
+${guestScope} [data-mobile-composer] nav:has([data-octane-native-image-picker-trigger]) {
   background: var(--bgpt-bg-primary) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer] nav p {
+${guestScope} [data-mobile-composer] nav p {
   color: var(--bgpt-text-secondary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar {
+/* Icon actions are plain glyphs. Native transparent borders and pseudo paint
+   must not turn into persistent themed circles when the palette is applied. */
+${guestScope} [data-mobile-composer] :is([data-composer-action], [data-start-dictation], [data-start-voice]),
+${guestScope} :is(button[aria-controls="ds-sidebar"], #ds-sidebar button[aria-label], [data-slot="sidebar-rail"] button) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--bgpt-text-primary) !important;
+}
+${guestScope} [data-mobile-composer] :is([data-composer-action], [data-start-dictation], [data-start-voice])::before,
+${guestScope} [data-mobile-composer] :is([data-composer-action], [data-start-dictation], [data-start-voice])::after,
+${guestScope} :is(button[aria-controls="ds-sidebar"], #ds-sidebar button[aria-label], [data-slot="sidebar-rail"] button)::before,
+${guestScope} :is(button[aria-controls="ds-sidebar"], #ds-sidebar button[aria-label], [data-slot="sidebar-rail"] button)::after {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+${guestScope} #ds-sidebar {
   background: var(--bgpt-bg-sidebar) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-slot="sidebar-rail"], div:has(> [data-slot="sidebar-rail"])) {
+/* Drawer internals retain hardcoded StyleX black fills and masked gradients.
+   Clear only structure; the shell supplies the sidebar color immediately. */
+${guestScope} #ds-sidebar :is(div, section, nav, footer):not(button *):not(a *):not([data-w-component] *):not([popover]):not([popover] *) {
+  background: transparent !important;
+  color: inherit !important;
+}
+${guestScope} #ds-sidebar :is([data-slot="sidebar-header"], [data-slot="sidebar-actions"]) > span[aria-hidden="true"] {
+  background: var(--bgpt-bg-sidebar) !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+${guestScope} :is([data-slot="sidebar-rail"], div:has(> [data-slot="sidebar-rail"])) {
   background: var(--bgpt-bg-sidebar) !important;
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :where(#ds-sidebar, [data-slot="sidebar-rail"]) :is(button, a):not([data-variant="primary"]) {
+${guestScope} :where(#ds-sidebar, [data-slot="sidebar-rail"]) :is(button, a):not([data-variant="primary"]) {
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is(#ds-sidebar, [data-slot="sidebar-rail"]) :is(p, h2) {
+${guestScope} :is(#ds-sidebar, [data-slot="sidebar-rail"]) :is(p, h2) {
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-slot="sidebar-rail"] :is(span, svg) {
+${guestScope} [data-slot="sidebar-rail"] :is(span, svg) {
   color: inherit !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar [data-slot="sidebar-header"] > span[aria-hidden="true"] {
+${guestScope} #ds-sidebar [data-slot="sidebar-header"] > span[aria-hidden="true"] {
   background: var(--bgpt-bg-sidebar) !important;
   mask-image: none !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar [data-status="active"] {
+${guestScope} #ds-sidebar [data-status="active"] {
   background: ${hoverSurface} !important;
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-mobile-composer-prompt], [data-mobile-composer] textarea) {
+${guestScope} :is([data-mobile-composer-prompt], [data-mobile-composer] textarea) {
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
   caret-color: var(--bgpt-accent) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer-prompt]::placeholder {
+${guestScope} [data-mobile-composer-prompt]::placeholder {
   color: var(--bgpt-text-secondary) !important;
   opacity: 1 !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-privacy-notice], [data-privacy-notice] p, [data-privacy-legal-notice], [data-privacy-legal-notice] span) {
+${guestScope} :is([data-privacy-notice], [data-privacy-notice] p, [data-privacy-legal-notice], [data-privacy-legal-notice] span) {
   color: var(--bgpt-text-secondary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-privacy-legal-notice] a {
+${guestScope} [data-privacy-legal-notice] a {
   color: var(--bgpt-text-primary) !important;
   text-decoration: underline;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is(dialog[data-bottom-sheet], [data-bottom-sheet-scroller]) {
+${guestScope} :is(dialog[data-bottom-sheet], [data-bottom-sheet-scroller]) {
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-bottom-sheet-surface], [data-octane-product-card], [data-octane-recurring-login-banner]) {
+${guestScope} :is([data-bottom-sheet-surface], [data-octane-product-card], [data-octane-recurring-login-banner]) {
   background: var(--bgpt-bg-primary) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-bottom-sheet-content], [data-octane-product-card], [data-octane-recurring-login-banner]) :is(h1, h2, p, label) {
+${guestScope} :is([data-bottom-sheet-content], [data-octane-product-card], [data-octane-recurring-login-banner]) :is(h1, h2, p, label) {
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-bottom-sheet-content] :is(span, label):not([data-w-component="button"] *):not([data-w-component="link-button"] *) {
+${guestScope} [data-bottom-sheet-content] :is(span, label):not([data-w-component="button"] *):not([data-w-component="link-button"] *) {
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-bottom-sheet-content] input:not([type="hidden"]) {
+${guestScope} [data-bottom-sheet-content] input:not([type="hidden"]) {
   background: var(--bgpt-input-bg) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
@@ -1358,6 +1416,57 @@ html.beauty-gpt-bg :is([data-ds-top-chrome], [data-ds-top-chrome] [data-slot="he
   background-image: none !important;
   mask-image: none !important;
   -webkit-mask-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Anonymous settings is a separate page with StyleX text runs and native
+   checkbox switches. Scope by its actual root, independently of chat UI. */
+html.beauty-gpt-active #mobile-settings-page,
+html.beauty-gpt-active #mobile-settings-page :is(h1, h2, h3, label, span, p, button, a, select, svg) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active #mobile-settings-page :is(div, section, nav):not([role="switch"]):not(button *):not(a *) {
+  background: transparent !important;
+}
+html.beauty-gpt-active #mobile-settings-page :is(small, small span, [data-octane-settings-color-scheme-value], [data-octane-settings-locale-value]) {
+  color: var(--bgpt-text-secondary) !important;
+}
+html.beauty-gpt-active #mobile-settings-page small a {
+  color: var(--bgpt-text-primary) !important;
+  text-decoration: underline;
+}
+html.beauty-gpt-active #mobile-settings-page [data-octane-settings-open-pane] {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active #mobile-settings-page [data-octane-settings-open-pane]:hover {
+  background: ${hoverSurface} !important;
+}
+html.beauty-gpt-active #mobile-settings-page input[type="checkbox"][role="switch"] {
+  background: var(--bgpt-border) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active #mobile-settings-page input[type="checkbox"][role="switch"]:checked {
+  background: var(--bgpt-accent) !important;
+  border-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active #mobile-settings-page input[type="checkbox"][role="switch"]::after {
+  background: var(--bgpt-input-bg) !important;
+}
+html.beauty-gpt-active #mobile-settings-page input[type="checkbox"][role="switch"]:checked::after {
+  background: ${accentFg} !important;
+}
+html.beauty-gpt-active:has([data-mobile-settings-modal]) [data-ds-top-chrome] :is(a[aria-label="返回 ChatGPT"], [role="heading"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active:has([data-mobile-settings-modal]) [data-ds-top-chrome] a[aria-label="返回 ChatGPT"]::before,
+html.beauty-gpt-active:has([data-mobile-settings-modal]) [data-ds-top-chrome] a[aria-label="返回 ChatGPT"]::after {
+  background: transparent !important;
+  border-color: transparent !important;
   box-shadow: none !important;
 }
 
@@ -1381,6 +1490,7 @@ html.beauty-gpt-active :is([data-slot="slider-thumb"], [data-bgpt-slider-thumb],
   border-radius: 9999px !important;
 }
 html.beauty-gpt-active :is([data-model-picker-power-slider], [data-bgpt-slider-root], [data-bgpt-slider-decoration]),
+html.beauty-gpt-active [data-model-picker-power-slider] > [data-orientation="horizontal"],
 html.beauty-gpt-active [data-bgpt-slider-root]::before,
 html.beauty-gpt-active [data-bgpt-slider-root]::after,
 html.beauty-gpt-active [data-bgpt-slider-decoration]::before,
@@ -1483,6 +1593,7 @@ html.beauty-gpt-active [data-radix-menu-content] .__menu-item,
 html.beauty-gpt-active [role="menu"] .__menu-item,
 html.beauty-gpt-active [role="menuitem"],
 html.beauty-gpt-active [role="menuitemradio"] {
+  --bgpt-menu-item-bg: transparent;
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
   border: none !important;
@@ -1504,10 +1615,17 @@ html.beauty-gpt-active [role="menuitemradio"]:hover,
 html.beauty-gpt-active [role="menu"] .__menu-item:hover,
 html.beauty-gpt-active [data-radix-menu-content] .__menu-item:hover,
 html.beauty-gpt-active [role="menuitem"][data-state="open"],
-html.beauty-gpt-active [data-radix-menu-content] [data-highlighted],
-html.beauty-gpt-active [data-radix-menu-content] [data-state="open"] {
+html.beauty-gpt-active [data-radix-menu-content] :is(button, a, [role^="menuitem"], .__menu-item)[data-highlighted]:not([data-highlighted="false"]),
+html.beauty-gpt-active [data-radix-menu-content] :is(button, a, [role^="menuitem"], .__menu-item)[data-state="open"] {
+  --bgpt-menu-item-bg: ${hoverSurface} !important;
   background-color: ${hoverSurface} !important;
   color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [role="menuitem"]:has([data-model-picker-power-slider]),
+html.beauty-gpt-active [data-radix-menu-content] [role="menuitem"][data-highlighted]:has([data-model-picker-power-slider]) {
+  --bgpt-menu-item-bg: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html.beauty-gpt-active [role="menuitemradio"][aria-checked="true"],
@@ -1701,6 +1819,22 @@ html.beauty-gpt-active [data-message-author-role="user"] .bg-token-main-surface-
 html.beauty-gpt-active [data-message-author-role="user"] .group\\/message-image {
   background-color: ${vars.bubbleUser} !important;
   background: ${vars.bubbleUser} !important;
+}
+
+/* The first div is a full-width animation wrapper, not the message bubble.
+   Target the actual semantic bubble through all hydration/layout wrappers. */
+html.beauty-gpt-active [data-message-role="user"] {
+  background: transparent !important;
+}
+html.beauty-gpt-active [data-message-role="user"] [data-submit-message-animation-target] {
+  background: transparent !important;
+}
+html.beauty-gpt-active [data-user-message-bubble] {
+  background: var(--bgpt-bubble-user) !important;
+  color: ${contrastOn(vars.bubbleUser)} !important;
+}
+html.beauty-gpt-active [data-user-message-bubble] :is(p, span, strong, em, a, code) {
+  color: ${contrastOn(vars.bubbleUser)} !important;
 }
 
 html.beauty-gpt-active [data-message-author-role="assistant"],
@@ -3713,7 +3847,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         '[data-radix-menu-content] .__menu-item, [role="menu"] .__menu-item, [role="menuitem"], [role="menuitemradio"]'
       )
       .forEach((el) => {
-        setInline(el, "background", "transparent");
+        setInline(el, "background", "var(--bgpt-menu-item-bg, transparent)");
         setInline(el, "color", vars.textPrimary);
         setInline(el, "box-shadow", "none");
       });
@@ -4397,7 +4531,12 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       setInline(el, "border-radius", "9999px");
     });
 
-    document.querySelectorAll(".user-message-bubble-color, [class*='user-message-bubble'], [data-message-author-role='user'] [class*='bg-user-message'], [data-turn='user'] [class*='bg-user-message']").forEach((el) => {
+    // Also neutralize stale 1.3.4 inline fills on the animation container.
+    document.querySelectorAll('[data-message-role="user"] [data-submit-message-animation-target]').forEach(el => {
+      setInline(el, 'background', 'transparent');
+      setInline(el, 'color', vars.textPrimary);
+    });
+    document.querySelectorAll(".user-message-bubble-color, [class*='user-message-bubble'], [data-message-author-role='user'] [class*='bg-user-message'], [data-turn='user'] [class*='bg-user-message'], [data-user-message-bubble]").forEach((el) => {
       setInline(el, "background", vars.bubbleUser);
       setInline(el, "background-color", vars.bubbleUser);
       setInline(el, "box-shadow", "none");
@@ -4612,7 +4751,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     if (currentWallpaper.enabled && currentWallpaper.url && !isSettingsShell()) {
       // Follow structural anchors through all wrappers, including hashed app-shell
       // classes. Never clear message/card descendants, sidebars or portal panels.
-      document.querySelectorAll('main, #main, #thread, [data-scroll-root], .thread-scroll-container, [data-thread-scroll-footer], .composer-parent, [data-composer-surface], [data-composer-body]').forEach(anchor => {
+      document.querySelectorAll('main, #main, #thread, [data-scroll-root], .thread-scroll-container, [data-thread-scroll-footer], .composer-parent, [data-composer-surface], [data-composer-body], main [class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"])').forEach(anchor => {
         if (anchor.closest('aside, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root')) return;
         let shell = anchor.matches('[data-composer-surface], [data-composer-body]') ? anchor.parentElement : anchor;
         for (; shell && shell !== document.body && shell !== document.documentElement; shell = shell.parentElement) {
@@ -4621,7 +4760,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       });
       // The conversation scroller may have no stable ID or class and can be a
       // sibling of the composer. Walk outwards from actual message turns, too.
-      const message = document.querySelector('[data-message-author-role], [data-turn], [data-testid^="conversation-turn"]');
+      const message = document.querySelector('[data-message-author-role], [data-message-role], [data-turn], [data-testid^="conversation-turn"]');
       if (message && !message.closest('aside, [role="dialog"], #beauty-gpt-root')) {
         const turn = message.closest('article, [data-testid^="conversation-turn"], [data-turn]') || message;
         for (let shell = turn.parentElement; shell && shell !== document.body && shell !== document.documentElement; shell = shell.parentElement) {
@@ -4663,7 +4802,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       if (el.closest('aside, nav, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root, [data-composer-surface="true"], [data-composer-body]')) return;
       const rect = el.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      if (rect.top < -8 || rect.top > 120) return;
+      if (rect.top < -8 || rect.top > 180) return;
       if (!anchors.includes(el)) anchors.push(el);
     };
     document.querySelectorAll('input[id^="library-search"]').forEach(consider);
@@ -4763,8 +4902,10 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
   function clearPageTopChrome() {
     const wallpaperOn = !!(currentWallpaper.enabled && currentWallpaper.url);
     const marked = Array.from(document.querySelectorAll(`[${PAGE_CHROME_ATTR}]`));
+    const sharedHeaderPage = /^\/(finances|gpts)(?:\/|$)/.test(location.pathname || '');
     const routeOnPage = PAGE_ROUTE_RE.test(location.pathname || '') ||
-      /^#(space|library|images|sites|plugins|skills|scheduled)(?:[/?#]|$)/i.test(location.hash || '');
+      sharedHeaderPage ||
+      /^#(space|library|images|sites|plugins|skills|scheduled|finances|gpts)(?:[/?#]|$)/i.test(location.hash || '');
     if (!wallpaperOn || !routeOnPage) {
       marked.forEach((el) => {
         restorePageChromeSurface(el);
@@ -4781,6 +4922,9 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     // Suspense/loading bars can precede both the title and search input, and
     // need not be inside main or expose any stable utility classes.
     document.querySelectorAll('header, [role="banner"], div, section').forEach(bar => {
+      // The GPT notice above this header is content, not a decorative strip.
+      if (sharedHeaderPage && !bar.matches('[class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"])') &&
+          !bar.closest('[class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"])')) return;
       if (bar.closest('aside, nav, button, a, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root, [data-composer-body]')) return;
       const rect = bar.getBoundingClientRect();
       if (rect.top < -8 || rect.top > 80 || rect.height < 32 || rect.height > 180 || rect.width < window.innerWidth * 0.6) return;
@@ -4961,6 +5105,10 @@ html.beauty-gpt-bg #page-header[class*="bg-token"] {
    壁纸模式下清空填充，避免顶部出现一条主题色/白色「垫底」。 */
 /* Match structural chrome before its search input mounts. Do not depend on
    route hints or observer-added attributes: both arrive after first paint. */
+html.beauty-gpt-bg main .h-full.bg-surface:has([class*="shell-"] > [class*="content-"] > [class*="headerRow-"]),
+html.beauty-gpt-bg main [class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"]),
+html.beauty-gpt-bg main [class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"])::before,
+html.beauty-gpt-bg main [class*="shell-"]:has(> [class*="content-"] > [class*="headerRow-"])::after,
 html.beauty-gpt-bg:not(.beauty-gpt-settings) main > .sticky.bg-surface,
 html.beauty-gpt-bg:not(.beauty-gpt-settings) main > div > .sticky.bg-surface,
 html.beauty-gpt-bg:not(.beauty-gpt-settings) main > header,
@@ -4979,6 +5127,14 @@ html.beauty-gpt-bg [data-bgpt-page-chrome]::after {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* Health onboarding has a decorative artwork fade, separate from the demo
+   data card itself. Remove only that layer while wallpaper is enabled. */
+html.beauty-gpt-bg main [class*="artworkFade-"].from-transparent.to-surface {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 /* 壁纸模式：彻底隐藏 GPT 原生首页装饰图 */
