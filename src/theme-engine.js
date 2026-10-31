@@ -20,11 +20,15 @@
   };
 
   const WALLPAPER_STYLE_ID = "beauty-gpt-wallpaper";
+  const WALLPAPER_LAYER_ID = "beauty-gpt-bg-layer";
+  const PAGE_CHROME_ATTR = "data-bgpt-page-chrome";
   const VIDEO_EL_ID = "beauty-gpt-bg-video";
   const VIDEO_FRAME_ID = "beauty-gpt-bg-frame";
   const VIDEO_CHUNK_BYTES = 256 * 1024;
   const DEFAULT_BG_OPACITY = 40;
   const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
+  // Full-page views (资料空间 / 图像 / 站点 …) render their own page chrome.
+  const PAGE_ROUTE_RE = /^\/(space|library|images|sites|plugins|skills|scheduled)(?:\/|$)/;
 
   /** @type {{ enabled: boolean, opacity: number, url: string|null, bgPrimary: string|null, mediaType: "image"|"video"|null }} */
   let currentWallpaper = {
@@ -37,6 +41,9 @@
 
   /** @type {string|null} */
   let activeVideoObjectUrl = null;
+  let wallpaperLoad = { url: null, state: 'off' };
+  /** Native inline fills saved while page chrome is cleared for wallpaper. */
+  const pageChromeStyles = new WeakMap();
 
   const VAR_KEYS = [
     "bgPrimary",
@@ -154,7 +161,32 @@
   }
 
   function contrastOn(hex) {
-    return isDark(hex) ? "#ffffff" : "#1a1a1a";
+    return contrastRatio(hex, '#ffffff') >= contrastRatio(hex, '#000000') ? '#ffffff' : '#000000';
+  }
+
+  function luminance(hex) {
+    const value = normalizeHex(hex) || '#000000';
+    const channels = [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16) / 255)
+      .map(c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  }
+
+  function contrastRatio(a, b) {
+    const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  }
+
+  function readableOn(color, background, fallback) {
+    if (contrastRatio(color, background) >= 4.5) return color;
+    return fallback && contrastRatio(fallback, background) >= 4.5 ? fallback : contrastOn(background);
+  }
+
+  function sidebarAccentFor(vars) {
+    // Selected rows tint the sidebar. Measure against that tint, not just the
+    // unselected sidebar base, so borderline blue/green accents stay readable.
+    const accent = normalizeHex(vars.accent) || '#000000', base = normalizeHex(vars.bgSidebar) || '#ffffff';
+    const selected = '#' + [1, 3, 5].map(i => Math.round(parseInt(accent.slice(i, i + 2), 16) * 0.18 + parseInt(base.slice(i, i + 2), 16) * 0.82).toString(16).padStart(2, '0')).join('');
+    return readableOn(vars.accent, selected, vars.textPrimary);
   }
 
   // ChatGPT's app-shell uses a second token namespace. Keep legacy aliases
@@ -176,11 +208,20 @@
     group('app-color-text-button-primary app-color-text-on-accent color-text-primary-solid color-text-on-accent', contrastOn(vars.accent));
     group('app-color-background-button-secondary color-background-button-outline-hover', vars.bgSecondary);
     group('app-color-background-button-secondary-hover app-color-background-button-secondary-active app-color-background-button-tertiary-hover app-color-background-button-tertiary-active color-background-primary-ghost-hover color-background-primary-ghost-active color-background-secondary-ghost-hover color-background-primary-soft-hover', hover);
-    group('color-background-primary-soft-active color-background-primary-soft-alpha color-background-secondary-soft-alpha-active color-background-activity-control', vars.bgSecondary);
+    group('color-background-primary-soft-active color-background-primary-soft-alpha color-background-secondary-soft-alpha-active', vars.bgSecondary);
+    group('color-background-activity-control', 'transparent');
     group('color-background-primary-surface color-background-secondary-soft-hover color-background-primary-soft-alpha-hover', hover);
     group('color-text-primary-surface color-text-primary-ghost-hover color-text-primary-soft-alt', vars.textPrimary);
     group('color-border-primary-outline color-token-input-border', vars.border);
     group('color-background-composer color-background-composer-action-bar', vars.inputBg);
+    group('color-background-composer-primary', vars.accent);
+    group('color-text-composer-primary', contrastOn(vars.accent));
+    group('color-background-accent color-background-voice color-background-composer-voice color-background-slider-range app-color-background-accent', vars.accent);
+    group('color-background-accent-hover color-background-voice-hover color-background-composer-voice-hover', vars.accentHover);
+    group('color-background-slider-track', vars.bgSecondary);
+    group('color-background-slider-thumb', vars.inputBg);
+    group('color-background-user-message color-background-message-user color-background-user-message-bubble', vars.bubbleUser);
+    group('color-text-user-message color-text-message-user', contrastOn(vars.bubbleUser));
     group('color-background-mode-toggle-track', vars.bgSecondary);
     group('color-background-mode-toggle-selected', vars.inputBg);
     group('color-text-mode-toggle-primary', vars.textPrimary);
@@ -188,7 +229,7 @@
     group('color-text-mode-toggle-accent', vars.accent);
     group('color-border-mode-toggle-selected', vars.border);
     group('shadow-mode-toggle-selected', 'none');
-    group('segmented-control-background', vars.bgSecondary);
+    group('segmented-control-background', 'transparent');
     group('color-background-segmented-form-selected', hover);
     group('tooltip-background-color tooltip-compact-background-color color-background-tooltip color-background-tooltip-classic', vars.bgSecondary);
     group('tooltip-text-color tooltip-compact-text-color color-text-tooltip color-text-tooltip-classic', vars.textPrimary);
@@ -214,6 +255,8 @@
     const elevated = vars.bgSecondary;
     const composerBg = vars.inputBg;
     const composerBorder = withAlpha(vars.border, 0.9);
+    const sidebarAccent = sidebarAccentFor(vars);
+    const sidebarSecondary = readableOn(vars.textSecondary, vars.bgSidebar, vars.textPrimary);
 
     // Override ChatGPT design tokens so Tailwind token utilities pick up theme colors
     const chatgptTokens = `
@@ -1057,9 +1100,7 @@ html.beauty-gpt-active #page-header [style*="#212121"] {
 /* ========== Composer (unified input bar) ========== */
 html.beauty-gpt-active [data-composer-surface="true"],
 html.beauty-gpt-active form[data-type="unified-composer"] [data-composer-surface="true"],
-html.beauty-gpt-active form[data-type="unified-composer"],
-html.beauty-gpt-active #thread-bottom form:has([data-composer-surface="true"]),
-html.beauty-gpt-active .composer-parent form:has([data-composer-surface="true"]) {
+html.beauty-gpt-active form[data-type="unified-composer"]:not(:has([data-composer-surface], [data-composer-body])) {
   background-color: var(--bgpt-input-bg) !important;
   background: var(--bgpt-input-bg) !important;
   border: 1px solid ${composerBorder} !important;
@@ -1165,6 +1206,198 @@ html.beauty-gpt-active button[aria-label="启动语音功能"]:hover {
 html.beauty-gpt-active button[aria-label="开始听写"] {
   color: var(--bgpt-text-primary) !important;
   background-color: transparent !important;
+}
+
+/* Primary actions share one accent, including newer localized voice labels.
+   Do not recolor every SVG: outline icons must retain fill="none". */
+html.beauty-gpt-active :is([data-bgpt-composer-action], button[data-testid="composer-speech-button"], button[data-testid="send-button"]) {
+  background: var(--bgpt-accent) !important;
+  color: ${accentFg} !important;
+  border: none !important;
+  border-radius: 9999px !important;
+}
+html.beauty-gpt-active :is([data-bgpt-composer-action], button[data-testid="composer-speech-button"], button[data-testid="send-button"]):hover:not(:disabled) {
+  background: var(--bgpt-accent-hover) !important;
+}
+html.beauty-gpt-active [data-bgpt-composer-action] :is(svg, span) {
+  color: inherit !important;
+}
+html.beauty-gpt-active [data-bgpt-composer-controls] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [data-bgpt-composer-controls]::before,
+html.beauty-gpt-active [data-bgpt-composer-controls]::after {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active [data-bgpt-composer-controls] button:not([data-bgpt-composer-action]) {
+  background: transparent !important;
+}
+html.beauty-gpt-active [data-bgpt-composer-controls] button:not([data-bgpt-composer-action]):hover {
+  --bgpt-composer-neutral-fill: ${hoverSurface};
+  background: ${hoverSurface} !important;
+}
+html.beauty-gpt-active :is([data-composer-surface], [data-composer-body]) button[aria-haspopup] {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active :is([data-composer-surface], [data-composer-body]) button[aria-haspopup]:hover {
+  background: ${hoverSurface} !important;
+}
+
+/* Logged-out lightweight shell uses StyleX classes and semantic data markers,
+   rather than the authenticated app's token utilities. Keep native visibility,
+   modal positioning, textarea sizing and responsive layout untouched. */
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-ds-top-chrome], [data-ds-composer], [data-slot="header"], [data-header-wordmark], #ds-sidebar, [data-mobile-landing-heading]) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-header-wordmark], [data-mobile-landing-heading], #ds-sidebar) :is(span, svg, p) {
+  color: inherit !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-w-component="button"], [data-w-component="link-button"], button[aria-controls="ds-sidebar"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][data-variant="secondary"] {
+  background: var(--bgpt-bg-secondary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-w-component][data-variant="primary"], [data-start-voice], [data-mobile-composer] [data-composer-submit]) {
+  background: var(--bgpt-accent) !important;
+  color: ${accentFg} !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component] :is(span, svg) {
+  color: inherit !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][data-variant="ghost"]:hover,
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][aria-pressed="true"] {
+  background: ${hoverSurface} !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer] nav:has([data-octane-native-image-picker-trigger]) {
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer] nav p {
+  color: var(--bgpt-text-secondary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar {
+  background: var(--bgpt-bg-sidebar) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-slot="sidebar-rail"], div:has(> [data-slot="sidebar-rail"])) {
+  background: var(--bgpt-bg-sidebar) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :where(#ds-sidebar, [data-slot="sidebar-rail"]) :is(button, a):not([data-variant="primary"]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is(#ds-sidebar, [data-slot="sidebar-rail"]) :is(p, h2) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-slot="sidebar-rail"] :is(span, svg) {
+  color: inherit !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar [data-slot="sidebar-header"] > span[aria-hidden="true"] {
+  background: var(--bgpt-bg-sidebar) !important;
+  mask-image: none !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) #ds-sidebar [data-status="active"] {
+  background: ${hoverSurface} !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-mobile-composer-prompt], [data-mobile-composer] textarea) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  caret-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-mobile-composer-prompt]::placeholder {
+  color: var(--bgpt-text-secondary) !important;
+  opacity: 1 !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-privacy-notice], [data-privacy-notice] p, [data-privacy-legal-notice], [data-privacy-legal-notice] span) {
+  color: var(--bgpt-text-secondary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-privacy-legal-notice] a {
+  color: var(--bgpt-text-primary) !important;
+  text-decoration: underline;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is(dialog[data-bottom-sheet], [data-bottom-sheet-scroller]) {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-bottom-sheet-surface], [data-octane-product-card], [data-octane-recurring-login-banner]) {
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-bottom-sheet-content], [data-octane-product-card], [data-octane-recurring-login-banner]) :is(h1, h2, p, label) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-bottom-sheet-content] :is(span, label):not([data-w-component="button"] *):not([data-w-component="link-button"] *) {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-bottom-sheet-content] input:not([type="hidden"]) {
+  background: var(--bgpt-input-bg) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active :is([data-ds-top-chrome] [data-slot="header"] > span[aria-hidden="true"], [data-ds-composer] > span[aria-hidden="true"], :where(#ds-sidebar) [data-slot="sidebar-header"] > span[aria-hidden="true"]) {
+  background: var(--bgpt-bg-primary) !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-bg :is([data-ds-top-chrome], [data-ds-top-chrome] [data-slot="header"] > span[aria-hidden="true"], [data-ds-composer], [data-ds-composer] > span[aria-hidden="true"]) {
+  background: transparent !important;
+  background-image: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Slider colors only; leave track/thumb dimensions and position to the app. */
+html.beauty-gpt-active input[type="range"],
+html.beauty-gpt-active input[type="checkbox"] {
+  accent-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active :is([data-slot="slider-track"], [data-radix-slider-track], [data-bgpt-slider-track]) {
+  background: var(--bgpt-bg-secondary) !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+}
+html.beauty-gpt-active :is([data-slot="slider-range"], [data-radix-slider-range], [data-bgpt-slider-range]) {
+  background: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active :is([data-slot="slider-thumb"], [data-bgpt-slider-thumb], [role="slider"]:not(input):not([aria-hidden="true"])) {
+  background: var(--bgpt-input-bg) !important;
+  border-color: var(--bgpt-accent) !important;
+  color: var(--bgpt-text-primary) !important;
+  border-radius: 9999px !important;
+}
+html.beauty-gpt-active :is([data-model-picker-power-slider], [data-bgpt-slider-root], [data-bgpt-slider-decoration]),
+html.beauty-gpt-active [data-bgpt-slider-root]::before,
+html.beauty-gpt-active [data-bgpt-slider-root]::after,
+html.beauty-gpt-active [data-bgpt-slider-decoration]::before,
+html.beauty-gpt-active [data-bgpt-slider-decoration]::after {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active [data-bgpt-slider-tick] {
+  background: var(--bgpt-text-secondary) !important;
+}
+html.beauty-gpt-active [data-bgpt-slider-tick][data-selected="true"] {
+  background: ${accentFg} !important;
+}
+html.beauty-gpt-active :is([role="dialog"], [role="menu"], [popover]):has([role="slider"], input[type="range"]) {
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
+  border: 1px solid var(--bgpt-border) !important;
+  box-shadow: 0 8px 24px ${withAlpha(vars.textPrimary, 0.16)} !important;
+}
+html.beauty-gpt-active :is([data-bgpt-composer-action], [role="slider"], input[type="range"]):focus-visible {
+  outline: 2px solid var(--bgpt-accent) !important;
+  outline-offset: 3px !important;
 }
 
 /* Tooltip surfaces follow the theme. Native tooltip textTheme scopes may
@@ -1689,8 +1922,8 @@ html.beauty-gpt-active .markdown span[data-state] a[rel*="noopener"],
 html.beauty-gpt-active .markdown a.h-6[href],
 html.beauty-gpt-active .markdown a[class*="rounded-full"][href*="http"],
 html.beauty-gpt-active .markdown a[class*="rounded-xl"][href*="http"]:has(img) {
-  background: ${withAlpha(vars.textPrimary, dark ? 0.14 : 0.08)} !important;
-  background-color: ${withAlpha(vars.textPrimary, dark ? 0.14 : 0.08)} !important;
+  background: var(--bgpt-bg-secondary) !important;
+  background-color: var(--bgpt-bg-secondary) !important;
   color: var(--bgpt-text-primary) !important;
   border: 1px solid var(--bgpt-border) !important;
   box-shadow: none !important;
@@ -1704,7 +1937,14 @@ html.beauty-gpt-active .markdown span[data-state] > a[target="_blank"] *:not(img
 html.beauty-gpt-active [data-testid*="citation"] *:not(img),
 html.beauty-gpt-active [data-testid*="footnote"] *:not(img) {
   color: var(--bgpt-text-primary) !important;
-  fill: currentColor !important;
+}
+html.beauty-gpt-active .markdown [class*="group/footnote"] :is(span, div),
+html.beauty-gpt-active .markdown button[class*="footnote"] :is(span, div),
+html.beauty-gpt-active .markdown a:has(img) :is(span, div),
+html.beauty-gpt-active [data-testid*="citation"] :is(span, div),
+html.beauty-gpt-active [data-testid*="footnote"] :is(span, div) {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html.beauty-gpt-active .markdown [class*="group/footnote"]:hover,
@@ -2153,19 +2393,22 @@ html.beauty-gpt-active:has(button[aria-label="返回应用"]) [class*="from-toke
 }
 
 /* Plugin catalog uses a compound search field inside a sticky full-width strip. */
-html.beauty-gpt-active .bg-page-search:has(> #plugins-store-page-search) {
+html.beauty-gpt-active .bg-page-search:has(> input),
+html.beauty-gpt-active.beauty-gpt-settings .bg-page-search:has(> input) {
   background: var(--bgpt-input-bg) !important;
   color: var(--bgpt-text-primary) !important;
   border-color: var(--bgpt-border) !important;
 }
+html.beauty-gpt-active .bg-page-search > input,
+html.beauty-gpt-active.beauty-gpt-settings .bg-page-search > input,
 html.beauty-gpt-active input#plugins-store-page-search {
   background: transparent !important;
   color: var(--bgpt-text-primary) !important;
   caret-color: var(--bgpt-accent) !important;
 }
-html.beauty-gpt-active .bg-page-search:has(> #plugins-store-page-search):focus-within {
-  outline: 2px solid var(--bgpt-accent);
-  outline-offset: 2px;
+html.beauty-gpt-active .bg-page-search:has(> input):focus-within {
+  outline: none !important;
+  box-shadow: none !important;
 }
 html.beauty-gpt-bg main .sticky.bg-surface:has(#plugins-store-page-search),
 html.beauty-gpt-bg main .sticky.bg-surface:has(#plugins-store-page-search)::after {
@@ -2188,11 +2431,12 @@ html.beauty-gpt-active aside.app-shell-left-panel button:is([aria-label="搜索"
 html.beauty-gpt-active [data-sidebar-header-search] {
   background: var(--bgpt-input-bg) !important;
   color: var(--bgpt-text-primary) !important;
-  box-shadow: inset 0 0 0 1px var(--bgpt-border) !important;
+  border: 1px solid var(--bgpt-border) !important;
+  box-shadow: none !important;
 }
 html.beauty-gpt-active [data-sidebar-header-search]:focus-within {
-  outline: 2px solid var(--bgpt-accent) !important;
-  outline-offset: 2px;
+  outline: none !important;
+  box-shadow: none !important;
 }
 html.beauty-gpt-active [data-sidebar-header-search] input#settings-search,
 html.beauty-gpt-active [data-sidebar-header-search] input {
@@ -2203,6 +2447,40 @@ html.beauty-gpt-active [data-sidebar-header-search] input {
 html.beauty-gpt-active [data-sidebar-header-search] input::placeholder,
 html.beauty-gpt-active [data-sidebar-header-search] svg {
   color: var(--bgpt-text-secondary) !important;
+}
+
+/* Compound search fields paint the surrounding pill only. The inner input
+   inherits that surface, including language menus and Codex cloud fields. */
+html.beauty-gpt-active [data-bgpt-search-field],
+html.beauty-gpt-active.beauty-gpt-settings [data-bgpt-search-field] {
+  background: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+  caret-color: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active :is([data-bgpt-search-field], [data-bgpt-search-shell]),
+html.beauty-gpt-active :is([data-bgpt-search-field], [data-bgpt-search-shell]):is(:focus, :focus-visible, :focus-within) {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+html.beauty-gpt-active [data-bgpt-clear-surface],
+html.beauty-gpt-active.beauty-gpt-settings [data-bgpt-clear-surface] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active [data-bgpt-clear-surface]::before,
+html.beauty-gpt-active [data-bgpt-clear-surface]::after {
+  background: none !important;
+}
+html.beauty-gpt-active [data-bgpt-profile-editor] {
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [data-bgpt-profile-editor] :is(div, span, p, label, h1, h2, h3):not(button *):not([role="switch"] *):not([role="checkbox"] *) {
+  color: var(--bgpt-text-primary) !important;
 }
 
 /* App-shell rollout: stable semantic classes and data attributes, no build hashes. */
@@ -2246,9 +2524,43 @@ html.beauty-gpt-active [data-bgpt-settings-nav] {
   background: var(--bgpt-bg-sidebar) !important;
   color: var(--bgpt-text-primary) !important;
 }
-html.beauty-gpt-active.beauty-gpt-settings :is(h1, h2, h3, p, label, span, svg) {
+html.beauty-gpt-active.beauty-gpt-settings :is(h1, h2, h3, p, label):not(button *):not([role="switch"] *):not([role="checkbox"] *):not([role="slider"] *):not(label:has(input[type="radio"]) *),
+html.beauty-gpt-active.beauty-gpt-settings [data-bgpt-settings-nav] :is(span, svg) {
   background-color: transparent !important;
   background-image: none !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings main .rounded-2xl.overflow-hidden.border.border-default {
+  background: var(--bgpt-bg-primary) !important;
+  color: var(--bgpt-text-primary) !important;
+}
+/* Tracks, thumbs and color previews are controls, never text fill wrappers. */
+html.beauty-gpt-active [role="switch"]:has(> span[data-state]) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-active [role="switch"] > span[data-state] {
+  background: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active [role="switch"][aria-checked="true"] > span[data-state] {
+  background: var(--bgpt-accent) !important;
+}
+html.beauty-gpt-active [role="switch"] > span[data-state] > span[data-state] {
+  background: var(--bgpt-input-bg) !important;
+  border-color: var(--bgpt-border) !important;
+}
+html.beauty-gpt-active [role="switch"][aria-checked="true"] > span[data-state] > span[data-state] {
+  background: ${accentFg} !important;
+  border-color: ${accentFg} !important;
+}
+html.beauty-gpt-active [role="checkbox"][aria-checked="true"] {
+  background: var(--bgpt-accent) !important;
+  color: ${accentFg} !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings [role="progressbar"] {
+  background: var(--bgpt-bg-secondary) !important;
+}
+html.beauty-gpt-active.beauty-gpt-settings [role="progressbar"] > div {
+  background: var(--bgpt-accent) !important;
 }
 html.beauty-gpt-active.beauty-gpt-settings :is(.text-primary, .text-token-text-primary) {
   color: var(--bgpt-text-primary) !important;
@@ -2265,7 +2577,47 @@ html.beauty-gpt-active [data-bgpt-settings-nav] :is(a, button, [role="tab"]):hov
 }
 html.beauty-gpt-active [data-bgpt-settings-nav] :is([aria-current="page"], [aria-selected="true"], [data-state="active"]) {
   background: ${softSurface} !important;
-  color: var(--bgpt-accent) !important;
+  color: ${sidebarAccent} !important;
+}
+
+html.beauty-gpt-active :is(aside.app-shell-left-panel, #stage-slideover-sidebar, [data-bgpt-settings-nav]) {
+  --color-text-secondary: ${sidebarSecondary} !important;
+  --color-text-tertiary: ${sidebarSecondary} !important;
+  --app-color-text-secondary: ${sidebarSecondary} !important;
+}
+html.beauty-gpt-active :is(aside.app-shell-left-panel, #stage-slideover-sidebar, [data-bgpt-settings-nav]) :is(.text-secondary, .text-tertiary) {
+  color: ${sidebarSecondary} !important;
+}
+html.beauty-gpt-active :is(aside.app-shell-left-panel, #stage-slideover-sidebar, [data-bgpt-settings-nav]) :is(.sidebar-item[aria-current="page"], [data-sidebar-item][data-active]) {
+  color: ${sidebarAccent} !important;
+}
+html.beauty-gpt-active :is(aside.app-shell-left-panel, [data-bgpt-settings-nav]) .sidebar-item svg {
+  color: inherit !important;
+}
+
+/* The current rich-response renderer uses semantic data-d-* elements rather
+   than markdown/footnote classes. Keep favicon images and semantic chart colors. */
+html.beauty-gpt-active [data-d-component="popover-trigger"][data-d-inline-text] [data-d-component="badge"] {
+  background: var(--bgpt-bg-secondary) !important;
+  color: var(--bgpt-text-primary) !important;
+  border: 1px solid var(--bgpt-border) !important;
+}
+html.beauty-gpt-active [data-d-component="popover-trigger"][data-d-inline-text] [data-d-component="text"] {
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-bg [data-dil-message-id] > [data-d-component="box"][data-d-has-border],
+html.beauty-gpt-bg main:has(input[id^="library-search"]) [role="grid"][aria-multiselectable="true"],
+html.beauty-gpt-bg [data-automation-card] > button {
+  background-color: transparent !important;
+}
+html.beauty-gpt-bg.beauty-gpt-catalog main div:has(> a[data-discover="true"][href^="/plugins/"]),
+html.beauty-gpt-bg.beauty-gpt-catalog main div[role="button"].rounded-2xl {
+  background-color: transparent !important;
+  color: var(--bgpt-text-primary) !important;
+}
+html.beauty-gpt-active [data-bgpt-thread-toolbar] {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 html.beauty-gpt-active :is(#prompt-textarea, #mobile-composer-prompt, [data-composer-surface] [contenteditable="true"]) {
   background: transparent !important;
@@ -2331,25 +2683,6 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
   }
 
   const STYLED_ATTR = "data-bgpt-inline";
-  const INLINE_PROPS = [
-    "background",
-    "background-color",
-    "background-image",
-    "color",
-    "border",
-    "border-color",
-    "border-radius",
-    "box-shadow",
-    "outline",
-    "font-weight",
-    "backdrop-filter",
-    "-webkit-backdrop-filter",
-    "display",
-    "opacity",
-    "visibility",
-    "pointer-events",
-  ];
-
   const TOKEN_PROPS = [
     "--composer-surface-primary",
     "--composer-surface-secondary",
@@ -2384,21 +2717,31 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     "--sharp-edge-bottom-shadow",
     "--sharp-edge-top-shadow",
   ];
+  const domTokenProps = new Set(TOKEN_PROPS);
+  const inlineSnapshots = new WeakMap();
 
   let savedColorMode = null;
 
   function setInline(el, prop, value) {
     if (!el || !el.style) return;
+    let snapshot = inlineSnapshots.get(el);
+    if (!snapshot) {
+      snapshot = new Map();
+      inlineSnapshots.set(el, snapshot);
+    }
+    if (!snapshot.has(prop)) {
+      snapshot.set(prop, { value: el.style.getPropertyValue(prop), priority: el.style.getPropertyPriority(prop) });
+    }
     // Skip no-ops: avoids style invalidation + DevTools mutation thrash
-    if (
-      el.getAttribute(STYLED_ATTR) === "1" &&
-      el.style.getPropertyValue(prop) === value &&
-      el.style.getPropertyPriority(prop) === "important"
-    ) {
+    const saved = snapshot.get(prop);
+    if (saved.requested === value && el.style.getPropertyValue(prop) === saved.applied && el.style.getPropertyPriority(prop) === 'important') {
       return;
     }
     el.setAttribute(STYLED_ATTR, "1");
     el.style.setProperty(prop, value, "important");
+    snapshot.get(prop).applied = el.style.getPropertyValue(prop);
+    snapshot.get(prop).appliedPriority = el.style.getPropertyPriority(prop);
+    snapshot.get(prop).requested = value;
   }
 
   /** ChatGPT is actively streaming a reply (token DOM churn). */
@@ -2424,36 +2767,22 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     }
   }
 
-  function isComposerSurface(el) {
-    return !!(
-      el &&
-      (el.matches?.("[data-composer-surface='true']") ||
-        el.closest?.("[data-composer-surface='true']"))
-    );
-  }
-
   function clearInlinePropsOn(el) {
-    INLINE_PROPS.forEach((p) => {
-      // 输入框圆角由 ChatGPT 内联 28px / corner-superellipse 控制；
-      // 清掉后站点不会立刻写回，恢复默认主题时会变成直角。
-      if (p === "border-radius" && isComposerSurface(el)) return;
-      el.style.removeProperty(p);
+    // Never erase the app's display/opacity/layout styles merely because we
+    // painted its background. Restore only properties this instance changed,
+    // and leave subsequent React/native updates alone.
+    inlineSnapshots.get(el)?.forEach((saved, prop) => {
+      if (el.style.getPropertyValue(prop) !== saved.applied || el.style.getPropertyPriority(prop) !== saved.appliedPriority) return;
+      if (saved.value) el.style.setProperty(prop, saved.value, saved.priority);
+      else el.style.removeProperty(prop);
     });
+    inlineSnapshots.delete(el);
     el.removeAttribute(STYLED_ATTR);
   }
 
   function clearInlineThemeStyles() {
     document.querySelectorAll(`[${STYLED_ATTR}]`).forEach((el) => {
       clearInlinePropsOn(el);
-    });
-  }
-
-  /** 恢复 ChatGPT 原生输入框圆角（不带 !important，便于站点自行覆盖） */
-  function restoreComposerNativeRadius() {
-    document.querySelectorAll("[data-composer-surface='true']").forEach((el) => {
-      el.style.removeProperty("border-radius");
-      el.style.setProperty("border-radius", "28px");
-      el.style.removeProperty("overflow");
     });
   }
 
@@ -2566,6 +2895,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       });
     }
     html.classList.toggle("beauty-gpt-library", library);
+    html.classList.toggle('beauty-gpt-catalog', /^\/(plugins|skills)(?:\/|$)/.test(path));
   }
 
   /** 同时包住侧栏与主聊天列的整页壳层 — 不能刷侧栏色 */
@@ -2684,7 +3014,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       surfaces.add(inner || form);
     });
     const editable = document.querySelector(
-      "#prompt-textarea, #mobile-composer-prompt, .ProseMirror, [contenteditable='true'][data-placeholder], textarea[name='prompt-textarea']"
+      "#prompt-textarea, #mobile-composer-prompt, .ProseMirror[contenteditable='true'], [contenteditable='true'][data-placeholder], textarea[name='prompt-textarea']"
     );
     if (editable) {
       const shell =
@@ -2771,7 +3101,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     const html = document.documentElement;
     const body = document.body;
     if (!vars) {
-      TOKEN_PROPS.forEach((k) => {
+      domTokenProps.forEach((k) => {
         html.style.removeProperty(k);
         body?.style?.removeProperty(k);
       });
@@ -2821,12 +3151,15 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       "--color-surface-secondary": vars.bgSecondary,
     };
     Object.entries(tokenMap).forEach(([key, value]) => {
+      domTokenProps.add(key);
       html.style.setProperty(key, value, "important");
       body?.style?.setProperty(key, value, "important");
     });
   }
 
   function paintSidebarText(vars) {
+    const accent = sidebarAccentFor(vars);
+    const secondary = readableOn(vars.textSecondary, vars.bgSidebar, vars.textPrimary);
     findSidebarRoots().forEach((root) => {
       if (isAppLayoutShell(root) || root.matches("aside.app-shell-left-panel")) return;
       root
@@ -2841,9 +3174,9 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
             el.getAttribute("aria-selected") === "true" ||
             !!el.closest("[data-active], [aria-current='page']");
           const isLabel = el.matches?.(".__menu-label");
-          setInline(el, "color", active ? vars.accent : isLabel ? vars.textSecondary : vars.textPrimary);
+          setInline(el, "color", active ? accent : isLabel ? secondary : vars.textPrimary);
           el.querySelectorAll("svg").forEach((svg) => {
-            setInline(svg, "color", active ? vars.accent : vars.textPrimary);
+            setInline(svg, "color", active ? accent : vars.textPrimary);
             setInline(svg, "opacity", "1");
           });
         });
@@ -2903,6 +3236,16 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
   }
 
   function paintMainColumn(vars, wallpaperOn) {
+    // Follow the actual main ancestry: app-shell wrapper names change between
+    // rollouts, and an opaque ancestor hides the viewport wallpaper entirely.
+    document.querySelectorAll('main, #main, #thread').forEach((main) => {
+      if (main.closest('[role="dialog"], aside, #beauty-gpt-root')) return;
+      for (let shell = main.parentElement; shell && shell !== document.documentElement; shell = shell.parentElement) {
+        setInline(shell, "background", wallpaperOn ? "transparent" : vars.bgPrimary);
+        setInline(shell, "background-color", wallpaperOn ? "transparent" : vars.bgPrimary);
+        if (wallpaperOn) setInline(shell, "background-image", "none");
+      }
+    });
     const selectors = [
       ".flex.h-svh.w-screen > :last-child",
       ".flex.h-full.w-screen > :last-child",
@@ -2945,6 +3288,10 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       }
     }
     roots.forEach((root) => {
+      if (root.closest('[data-bgpt-profile-editor]')) {
+        root.removeAttribute('data-bgpt-settings-nav');
+        return;
+      }
       if (root.closest('#beauty-gpt-root, main, [role="main"], [role="tabpanel"]')) return;
       root.setAttribute('data-bgpt-settings-nav', '');
     });
@@ -2955,7 +3302,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     // Hashed CSS classes also appear in the new shell. Repair opaque structural
     // backgrounds without assigning backgrounds to labels, icons or controls.
     document.querySelectorAll('div, section, header, aside, nav').forEach((el) => {
-      if (el.closest('#beauty-gpt-root, button, a, [role="switch"], [role="menu"], [role="listbox"], [popover]')) return;
+      if (el.closest('#beauty-gpt-root, .bg-page-search, button, a, [role="switch"], [role="progressbar"], [role="menu"], [role="listbox"], [popover]')) return;
       if (!isNearBlack(getComputedStyle(el).backgroundColor)) return;
       el.setAttribute('data-bgpt-settings-surface', '');
       setInline(el, 'background', el.closest('[data-bgpt-settings-nav]') ? vars.bgSidebar : vars.bgPrimary);
@@ -2968,6 +3315,92 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       el.setAttribute('data-bgpt-settings-surface', '');
       setInline(el, 'background', el.closest('[data-bgpt-settings-nav]') ? vars.bgSidebar : vars.bgPrimary);
       setInline(el, 'color', vars.textPrimary);
+    });
+  }
+
+  function syncSearchFields(vars) {
+    document.querySelectorAll('input').forEach(input => {
+      if (input.closest('#beauty-gpt-root')) return;
+      const name = [input.type, input.getAttribute('role'), input.id,
+        input.getAttribute('placeholder'), input.getAttribute('aria-label')].join(' ');
+      if (!/search|搜索|搜尋/i.test(name)) return;
+      input.setAttribute('data-bgpt-search-field', '');
+      setInline(input, 'background', 'transparent');
+      setInline(input, 'outline', 'none');
+      setInline(input, 'box-shadow', 'none');
+      let parent = input.parentElement;
+      // Mark only the compact field wrapper, never a menu, header or page.
+      for (let i = 0; parent && i < 3; i++, parent = parent.parentElement) {
+        if (parent.matches('body, main, aside, nav, header, [role="menu"], [role="listbox"], [role="dialog"]') ||
+            parent.querySelectorAll('input').length !== 1 || parent.textContent.trim().length >= 80) break;
+        if (parent.matches('.bg-page-search, [data-sidebar-header-search]') || parent.querySelector('svg')) {
+          parent.setAttribute('data-bgpt-search-shell', '');
+          setInline(parent, 'outline', 'none');
+          setInline(parent, 'box-shadow', 'none');
+          break;
+        }
+      }
+    });
+  }
+
+  function repairProfileEditor(vars) {
+    document.querySelectorAll('h1, h2, h3, [role="heading"], div, span').forEach(title => {
+      if (title.children.length && !title.matches('h1, h2, h3, [role="heading"]') ||
+          !/^(编辑个人资料|編輯個人資料|Edit profile)$/i.test(title.textContent.trim())) return;
+      for (let root = title.parentElement, i = 0; root && root !== document.body && i < 7; root = root.parentElement, i++) {
+        const buttons = Array.from(root.querySelectorAll('button'));
+        if (!buttons.some(b => /^(保存|儲存|Save)$/i.test(b.textContent.trim())) ||
+            !buttons.some(b => /^(取消|Cancel)$/i.test(b.textContent.trim()))) continue;
+        // The heading's immediate parent is often only the action header.
+        // Continue to the sheet that also contains the editable profile body.
+        if (!root.matches('[role="dialog"], aside') && !root.querySelector('[role="switch"], input, section') && buttons.length <= 2) continue;
+        root.setAttribute('data-bgpt-profile-editor', '');
+        setInline(root, 'background', vars.bgPrimary);
+        setInline(root, 'color', vars.textPrimary);
+        break;
+      }
+    });
+  }
+
+  // Clear neutral layout fills, rather than changing every descendant's color.
+  // Blank graph cells/skeletons, media previews and the controls themselves keep
+  // their fills. This also handles hashed wrappers in profile/settings sheets.
+  function clearContentSurfaces(vars, wallpaperOn) {
+    const settings = isSettingsShell();
+    const page = !settings && wallpaperOn && (PAGE_ROUTE_RE.test(location.pathname) ||
+      document.querySelector('input[id^="library-search"]'));
+    document.querySelectorAll('[data-bgpt-clear-surface]').forEach(el => {
+      if (!settings && !page && !el.closest('[data-bgpt-profile-editor]')) {
+        el.removeAttribute('data-bgpt-clear-surface');
+        clearInlinePropsOn(el);
+      }
+    });
+    if (!settings && !page && !document.querySelector('[data-bgpt-profile-editor]')) return;
+    const themed = [vars.bgPrimary, vars.bgSecondary].map(hex => {
+      const value = normalizeHex(hex);
+      return value && [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
+    }).filter(Boolean);
+    document.querySelectorAll('main div, main section, main header, main article, main table, main thead, main tbody, [data-bgpt-profile-editor] div, [data-bgpt-profile-editor] section').forEach(el => {
+      const profile = el.closest('[data-bgpt-profile-editor]');
+      if (!settings && !page && !profile) return;
+      if (el === profile || el.closest('#beauty-gpt-root, [data-bgpt-settings-nav], button, a, [role="button"], [role="switch"], [role="slider"], [role="progressbar"], [role="menu"], [role="listbox"], [role="tooltip"], [popover], [data-bgpt-search-shell], .bg-page-search, [data-composer-body], [data-composer-surface], [data-model-picker-power-slider], label:has(input[type="radio"]), [data-d-component], pre, code, [data-automation-card]')) return;
+      if (!profile && el.closest('aside, nav')) return;
+      if (!profile && el.closest('[role="dialog"]')) return;
+      if (!el.childElementCount && !el.textContent.trim()) return;
+      if (el.matches('[data-bgpt-slider-root], [data-bgpt-slider-track], [data-bgpt-slider-range]')) return;
+      // Direct image/video/canvas children are previews, not empty page shells.
+      if (!profile && el.querySelector(':scope > img, :scope > video, :scope > canvas, :scope > iframe, :scope > .ProseMirror[contenteditable="false"]')) return;
+      const color = getComputedStyle(el).backgroundColor;
+      const rgba = color.match(/[\d.]+/g)?.map(Number);
+      if (!rgba || rgba.length > 3 && rgba[3] < .95) return;
+      const channels = rgba.slice(0, 3);
+      const neutral = Math.max(...channels) - Math.min(...channels) < 18 &&
+        (Math.max(...channels) < 48 || Math.min(...channels) > 230);
+      if (!neutral && !themed.some(rgb => rgb.every((v, i) => v === channels[i]))) return;
+      el.setAttribute('data-bgpt-clear-surface', '');
+      setInline(el, 'background', 'transparent');
+      setInline(el, 'box-shadow', 'none');
+      if (profile) setInline(el, 'color', vars.textPrimary);
     });
   }
 
@@ -2992,10 +3425,67 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     paintSidebarChain(vars);
     paintMainColumn(vars, wallpaperOn);
     paintSidebarText(vars);
+    repairProfileEditor(vars);
     paintSettingsShell(vars);
+    syncSearchFields(vars);
+    clearContentSurfaces(vars, wallpaperOn);
+    syncWallpaperShells();
+    // Radix's native track/range spans have orientation attributes but no role
+    // or data-slot. Discover them from the accessible thumb, without class hashes.
+    document.querySelectorAll('[role="slider"]').forEach(thumb => {
+      const root = thumb.parentElement?.closest('[data-orientation]');
+      if (!root || root.matches('[role="slider"]')) return;
+      const track = root.querySelector(':scope > [data-orientation]:not([role="slider"])');
+      if (!track) return;
+      root.setAttribute('data-bgpt-slider-root', '');
+      track.setAttribute('data-bgpt-slider-track', '');
+      const range = track.querySelector(':scope > [data-orientation]') || track.querySelector(':scope > span[aria-hidden="true"]');
+      range?.setAttribute('data-bgpt-slider-range', '');
+      const visualRail = root.querySelector(':scope > [aria-hidden="true"]');
+      // The rail contains scale + spring wrappers. Only its leaf paints a
+      // circular thumb; coloring the spring produces the white square corners.
+      visualRail?.querySelectorAll('span').forEach(el => {
+        el.removeAttribute('data-bgpt-slider-thumb');
+        el.removeAttribute('data-bgpt-slider-decoration');
+        el.setAttribute(el.childElementCount ? 'data-bgpt-slider-decoration' : 'data-bgpt-slider-thumb', '');
+      });
+      visualRail?.setAttribute('data-bgpt-slider-decoration', '');
+      root.querySelectorAll(':scope > span:has(> [role="slider"][aria-hidden="true"]), [role="slider"][aria-hidden="true"]').forEach(el => el.setAttribute('data-bgpt-slider-decoration', ''));
+      track.querySelectorAll('[data-selected]').forEach(tick => tick.setAttribute('data-bgpt-slider-tick', ''));
+    });
     // Chat-only hardening below must not undo solid settings surfaces when
     // wallpaper is enabled or reinterpret settings controls as chat widgets.
     if (isSettingsShell()) return;
+
+    document.querySelectorAll('button[aria-label="Chat actions"], button[data-testid="conversation-options-button"], button[aria-label="分享"], button[aria-label="Share"]').forEach(button => {
+      const toolbar = button.parentElement;
+      if (toolbar && (toolbar.classList.contains('browser:bg-surface') || toolbar.querySelector('button[aria-label="Chat actions"]') && toolbar.querySelector('button[aria-label="分享"], button[aria-label="Share"]'))) {
+        toolbar.setAttribute('data-bgpt-thread-toolbar', '');
+      }
+    });
+
+    findComposerSurfaces().forEach((surface) => {
+      surface.querySelectorAll('[data-bgpt-composer-controls]').forEach(el => el.removeAttribute('data-bgpt-composer-controls'));
+      surface.querySelectorAll('button').forEach((button) => {
+        if (button.closest('[role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"], [popover], [data-radix-popper-content-wrapper]')) return;
+        const label = button.getAttribute('aria-label') || '';
+        const primary = button.matches('[data-testid="composer-speech-button"], [data-testid="send-button"], [data-testid="stop-button"], .composer-submit-button-color') ||
+          (/语音|voice|发送|send/i.test(label) && !/听写|dictat|设置|setting/i.test(label));
+        if (primary) {
+          button.setAttribute('data-bgpt-composer-action', 'primary');
+          // Native layouts wrap voice/send in one or more transition slots.
+          // The filled pill can be several ancestors above the button and need
+          // not expose aria-haspopup. Stop at the actual composer/editor shell.
+          for (let group = button.parentElement; group && group !== surface; group = group.parentElement) {
+            if (group.matches('[data-composer-surface], [data-composer-body], button, a, [role="button"]') ||
+                group.querySelector('[contenteditable], textarea, #prompt-textarea')) break;
+            group.setAttribute('data-bgpt-composer-controls', '');
+          }
+        } else {
+          button.removeAttribute('data-bgpt-composer-action');
+        }
+      });
+    });
 
     document
       .querySelectorAll(
@@ -3014,7 +3504,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         const active =
           el.getAttribute("data-active") != null ||
           el.getAttribute("aria-current") === "page";
-        setInline(el, "color", active ? vars.accent : vars.textPrimary);
+        setInline(el, "color", active ? sidebarAccentFor(vars) : vars.textPrimary);
         if (!active) {
           el.style.removeProperty("background");
           el.style.removeProperty("background-color");
@@ -3038,7 +3528,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       )
       .forEach((el) => {
         setInline(el, "background", "transparent");
-        setInline(el, "color", vars.accent);
+        setInline(el, "color", sidebarAccentFor(vars));
         setInline(el, "font-weight", "600");
       });
 
@@ -3373,6 +3863,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
 
     // 底部浮层 / + 菜单 / token 面板：强制实底（不再依赖易失效的 role 选择器）
     const paintSolidPanel = (el) => {
+      if (wallpaperOn && el?.hasAttribute('data-bgpt-wallpaper-shell')) return;
       if (!el || el.closest?.("[data-composer-surface='true']")) return;
       if (el.id === "prompt-textarea" || el.classList?.contains("ProseMirror")) return;
       setInline(el, "background", vars.bgSecondary);
@@ -3529,7 +4020,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       });
 
     // Citation / source pills
-    const citeBg = withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.14 : 0.08);
+    const citeBg = vars.bgSecondary;
     document
       .querySelectorAll(
         [
@@ -3590,6 +4081,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
           !el.closest('[data-testid="artifacts-surface-top-controls"]');
 
         if (underThread && nearComposerList) {
+          if (wallpaperOn && el.hasAttribute('data-bgpt-wallpaper-shell')) return;
           // 建议列表与 + 菜单共用表面：一律实底，避免壁纸透出叠字
           setInline(el, "background", vars.bgSecondary);
           setInline(el, "background-color", vars.bgSecondary);
@@ -3653,7 +4145,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
 
     document.querySelectorAll("input[type='search'], input[type='text']").forEach((el) => {
       if (el.closest("[data-composer-surface], form[data-type='unified-composer']")) return;
-      setInline(el, "background-color", el.matches(".bg-transparent") ? "transparent" : vars.inputBg);
+      setInline(el, "background-color", el.matches(".bg-transparent, [data-bgpt-search-field]") ? "transparent" : vars.inputBg);
       setInline(el, "color", vars.textPrimary);
       setInline(el, "border-color", vars.border);
     });
@@ -3880,7 +4372,7 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     });
 
     document
-      .querySelectorAll(".composer-submit-button-color, button[aria-label='启动语音功能']")
+      .querySelectorAll(".composer-submit-button-color, button[aria-label='启动语音功能'], button[aria-label='Start voice mode'], button[aria-label='开始语音模式'], button[data-testid='composer-speech-button']")
       .forEach((el) => {
         setInline(el, "background-color", vars.accent);
         setInline(el, "color", contrastOn(vars.accent));
@@ -3888,16 +4380,19 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
       });
 
     document.querySelectorAll(".__composer-pill").forEach((el) => {
+      if (el.hasAttribute('data-bgpt-composer-action')) return;
       setInline(
         el,
-        "background-color",
-        withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.1 : 0.06)
+        "background",
+        el.closest('[data-bgpt-composer-controls]')
+          ? 'var(--bgpt-composer-neutral-fill, transparent)'
+          : withAlpha(vars.textPrimary, isDark(vars.bgPrimary) ? 0.1 : 0.06)
       );
       setInline(el, "color", vars.textSecondary);
       setInline(el, "border-radius", "9999px");
     });
 
-    document.querySelectorAll(".user-message-bubble-color, [class*='user-message-bubble']").forEach((el) => {
+    document.querySelectorAll(".user-message-bubble-color, [class*='user-message-bubble'], [data-message-author-role='user'] [class*='bg-user-message'], [data-turn='user'] [class*='bg-user-message']").forEach((el) => {
       setInline(el, "background", vars.bubbleUser);
       setInline(el, "background-color", vars.bubbleUser);
       setInline(el, "box-shadow", "none");
@@ -4072,6 +4567,25 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
         }
       });
     }
+    // The trailing controls sit directly on the composer surface. Clear native
+    // or legacy pill fills after all other hardening, leaving voice buttons intact.
+    document.querySelectorAll('[data-bgpt-composer-controls]').forEach(group => {
+      setInline(group, 'background', 'transparent');
+      setInline(group, 'background-color', 'transparent');
+      setInline(group, 'box-shadow', 'none');
+      // Some rollouts paint a separate inert child behind the whole group.
+      group.querySelectorAll('div, span').forEach(decoration => {
+        if (decoration.closest('button, a, [role="button"], [role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"], [popover]')) return;
+        if (decoration.querySelector('input, textarea, [contenteditable], img')) return;
+        if (!decoration.querySelector('button') && decoration.textContent.trim()) return;
+        decoration.setAttribute('data-bgpt-composer-controls', '');
+        setInline(decoration, 'background', 'transparent');
+        setInline(decoration, 'box-shadow', 'none');
+      });
+    });
+    clearContentSurfaces(vars, wallpaperOn);
+    if (wallpaperOn) paintWallpaperShells();
+    clearPageTopChrome();
   }
 
   function buildWallpaperPaint(bgPrimary) {
@@ -4088,22 +4602,259 @@ html.beauty-gpt-active ::-webkit-scrollbar-thumb:hover {
     };
   }
 
+  function syncWallpaperShells() {
+    const shells = new Set();
+    if (currentWallpaper.enabled && currentWallpaper.url && !isSettingsShell()) {
+      // Follow structural anchors through all wrappers, including hashed app-shell
+      // classes. Never clear message/card descendants, sidebars or portal panels.
+      document.querySelectorAll('main, #main, #thread, [data-scroll-root], .thread-scroll-container, [data-thread-scroll-footer], .composer-parent, [data-composer-surface], [data-composer-body]').forEach(anchor => {
+        if (anchor.closest('aside, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root')) return;
+        let shell = anchor.matches('[data-composer-surface], [data-composer-body]') ? anchor.parentElement : anchor;
+        for (; shell && shell !== document.body && shell !== document.documentElement; shell = shell.parentElement) {
+          shells.add(shell);
+        }
+      });
+      // The conversation scroller may have no stable ID or class and can be a
+      // sibling of the composer. Walk outwards from actual message turns, too.
+      const message = document.querySelector('[data-message-author-role], [data-turn], [data-testid^="conversation-turn"]');
+      if (message && !message.closest('aside, [role="dialog"], #beauty-gpt-root')) {
+        const turn = message.closest('article, [data-testid^="conversation-turn"], [data-turn]') || message;
+        for (let shell = turn.parentElement; shell && shell !== document.body && shell !== document.documentElement; shell = shell.parentElement) {
+          shells.add(shell);
+        }
+      }
+    }
+    document.querySelectorAll('[data-bgpt-wallpaper-shell]').forEach(el => {
+      if (!shells.has(el)) {
+        el.removeAttribute('data-bgpt-wallpaper-shell');
+        // Remove only the wallpaper's own overrides; theme hardening repaints
+        // the normal main/settings surface after the wallpaper is disabled.
+        ['background', 'background-color', 'background-image'].forEach(prop => el.style.removeProperty(prop));
+      }
+    });
+    shells.forEach(el => {
+      if (!el.hasAttribute('data-bgpt-wallpaper-shell')) el.setAttribute('data-bgpt-wallpaper-shell', '');
+    });
+  }
+
+  function paintWallpaperShells() {
+    document.querySelectorAll('[data-bgpt-wallpaper-shell]').forEach(el => {
+      // Inline !important also defeats native inline surface colors. This pass
+      // runs last so generic panel/legacy surface repair cannot cover wallpaper.
+      setInline(el, 'background', 'transparent');
+      setInline(el, 'background-color', 'transparent');
+      setInline(el, 'background-image', 'none');
+    });
+  }
+
+  /** Full-page views (资料空间/图像/站点) paint their own top bar, often
+   *  outside <main>, so main/shell clearing can never reach it. Marked chrome
+   *  is cleared only while wallpaper mode is on; the CSS rule keeps it clear
+   *  after native attribute repaints. */
+  function collectPageChromeAnchors() {
+    const anchors = [];
+    const consider = (el) => {
+      if (!el || !el.isConnected) return;
+      if (el.closest('aside, nav, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root, [data-composer-surface="true"], [data-composer-body]')) return;
+      const rect = el.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (rect.top < -8 || rect.top > 120) return;
+      if (!anchors.includes(el)) anchors.push(el);
+    };
+    document.querySelectorAll('input[id^="library-search"]').forEach(consider);
+    if (!anchors.length) {
+      document.querySelectorAll('input[placeholder], input[type="search"], input[aria-label]').forEach((input) => {
+        const name = [input.id, input.getAttribute('placeholder'), input.getAttribute('aria-label')].join(' ');
+        if (!/搜索|搜尋|search/i.test(name)) return;
+        consider(input);
+      });
+    }
+    if (!anchors.length) {
+      document.querySelectorAll('h1, [role="heading"]').forEach((heading) => {
+        const level = Number(heading.getAttribute('aria-level'));
+        if (level > 2) return;
+        consider(heading);
+      });
+    }
+    return anchors;
+  }
+
+  function clearPageChromeSurface(el) {
+    if (!el) return;
+    if (!pageChromeStyles.has(el)) {
+      // Dedicated snapshot: background shorthand + background-color must be
+      // restored independently; the shared inline snapshot can mis-serialize
+      // the shorthand when both are written.
+      pageChromeStyles.set(el, {
+        background: [el.style.getPropertyValue('background'), el.style.getPropertyPriority('background')],
+        'background-color': [el.style.getPropertyValue('background-color'), el.style.getPropertyPriority('background-color')],
+        'background-image': [el.style.getPropertyValue('background-image'), el.style.getPropertyPriority('background-image')],
+        'box-shadow': [el.style.getPropertyValue('box-shadow'), el.style.getPropertyPriority('box-shadow')],
+        'backdrop-filter': [el.style.getPropertyValue('backdrop-filter'), el.style.getPropertyPriority('backdrop-filter')],
+        '-webkit-backdrop-filter': [el.style.getPropertyValue('-webkit-backdrop-filter'), el.style.getPropertyPriority('-webkit-backdrop-filter')],
+      });
+    } else if (
+      el.getAttribute(PAGE_CHROME_ATTR) === '' &&
+      el.style.getPropertyValue('background-color') === 'transparent' &&
+      el.style.getPropertyValue('background-image') === 'none' &&
+      el.style.getPropertyValue('box-shadow') === 'none' &&
+      el.style.getPropertyValue('backdrop-filter') === 'none'
+    ) {
+      return;
+    }
+    el.setAttribute(PAGE_CHROME_ATTR, '');
+    el.style.setProperty('background', 'transparent', 'important');
+    el.style.setProperty('background-color', 'transparent', 'important');
+    el.style.setProperty('background-image', 'none', 'important');
+    el.style.setProperty('box-shadow', 'none', 'important');
+    el.style.setProperty('backdrop-filter', 'none', 'important');
+    el.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+  }
+
+  function restorePageChromeSurface(el) {
+    const saved = pageChromeStyles.get(el);
+    if (saved) {
+      Object.entries(saved).forEach(([prop, [value, priority]]) => {
+        if (value) el.style.setProperty(prop, value, priority);
+        else el.style.removeProperty(prop);
+      });
+      pageChromeStyles.delete(el);
+    }
+    el.removeAttribute(PAGE_CHROME_ATTR);
+  }
+
+  // A bar may delegate its paint to a full-bleed decorative child layer.
+  function clearPageChromeLayers(bar, keep) {
+    const barRect = bar.getBoundingClientRect();
+    bar.querySelectorAll('div, section').forEach((child) => {
+      if (child.closest('button, a, input, textarea, select, label, [role="button"], [role="switch"], [role="slider"], [role="menu"], [role="listbox"], [role="dialog"], [popover], #beauty-gpt-root')) return;
+      const rect = child.getBoundingClientRect();
+      if (rect.width < barRect.width * 0.9 || rect.height < barRect.height * 0.55) return;
+      const channels = getComputedStyle(child).backgroundColor.match(/[\d.]+/g)?.map(Number);
+      if (!channels || (channels.length > 3 && channels[3] < 0.5)) return;
+      keep.add(child);
+      clearPageChromeSurface(child);
+    });
+  }
+
+  function paintPageChromeChain(anchor, keep) {
+    const maxHeight = Math.max(120, Math.min(240, window.innerHeight * 0.35));
+    let node = anchor.parentElement;
+    for (let depth = 0; node && node !== document.body && node !== document.documentElement && depth < 14; node = node.parentElement, depth++) {
+      if (node.closest('aside, nav, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root')) break;
+      if (node.matches('button, a, input, textarea, select, label, span, p, h1, h2, h3, h4, h5, h6, svg, img, video, canvas')) continue;
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) break;
+      if (rect.top > 140) break;
+      // Stop at the page body; only the chrome band and its wrappers are cleared.
+      if (rect.height > maxHeight) break;
+      if (rect.width < window.innerWidth * 0.4) continue;
+      keep.add(node);
+      clearPageChromeSurface(node);
+      clearPageChromeLayers(node, keep);
+    }
+  }
+
+  function clearPageTopChrome() {
+    const wallpaperOn = !!(currentWallpaper.enabled && currentWallpaper.url);
+    const marked = Array.from(document.querySelectorAll(`[${PAGE_CHROME_ATTR}]`));
+    const routeOnPage = PAGE_ROUTE_RE.test(location.pathname || '') ||
+      /^#(space|library|images|sites|plugins|skills|scheduled)(?:[/?#]|$)/i.test(location.hash || '');
+    if (!wallpaperOn || !routeOnPage) {
+      marked.forEach((el) => {
+        restorePageChromeSurface(el);
+      });
+      return;
+    }
+    // Detached headers are stale; drop their marker without touching styles.
+    marked.forEach((el) => {
+      if (!el.isConnected) el.removeAttribute(PAGE_CHROME_ATTR);
+    });
+    const anchors = collectPageChromeAnchors();
+    const keep = new Set();
+    anchors.forEach((anchor) => paintPageChromeChain(anchor, keep));
+    // Suspense/loading bars can precede both the title and search input, and
+    // need not be inside main or expose any stable utility classes.
+    document.querySelectorAll('header, [role="banner"], div, section').forEach(bar => {
+      if (bar.closest('aside, nav, button, a, [role="dialog"], [role="menu"], [role="listbox"], [popover], #beauty-gpt-root, [data-composer-body]')) return;
+      const rect = bar.getBoundingClientRect();
+      if (rect.top < -8 || rect.top > 80 || rect.height < 32 || rect.height > 180 || rect.width < window.innerWidth * 0.6) return;
+      if (bar.querySelector('img, video, canvas, iframe, [contenteditable="true"]')) return;
+      const color = getComputedStyle(bar).backgroundColor;
+      const rgba = color.match(/[\d.]+/g)?.map(Number);
+      // Previously marked transparent bars must stay in keep across callbacks.
+      if (!bar.hasAttribute(PAGE_CHROME_ATTR) && (!rgba || rgba.length > 3 && rgba[3] < .95)) return;
+      keep.add(bar);
+      clearPageChromeSurface(bar);
+      clearPageChromeLayers(bar, keep);
+    });
+    marked.forEach((el) => {
+      if (!el.isConnected || keep.has(el)) return;
+      restorePageChromeSurface(el);
+    });
+  }
+
+  function getWallpaperStatus() {
+    return { enabled: currentWallpaper.enabled, mediaType: currentWallpaper.mediaType,
+      opacity: currentWallpaper.opacity, state: wallpaperLoad.state };
+  }
+
+  function setWallpaperLoadState(url, state) {
+    wallpaperLoad = { url, state };
+    document.dispatchEvent(new CustomEvent('beauty-gpt-wallpaper-state'));
+  }
+
+  function ensureWallpaperLayer() {
+    let layer = document.getElementById(WALLPAPER_LAYER_ID);
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = WALLPAPER_LAYER_ID;
+      layer.setAttribute('aria-hidden', 'true');
+      const shadow = layer.attachShadow({ mode: 'open' });
+      const paint = document.createElement('div');
+      paint.setAttribute('data-wallpaper-paint', '');
+      paint.style.cssText = 'position:absolute;inset:0;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;';
+      shadow.append(paint);
+      document.documentElement.insertBefore(layer, document.body);
+    }
+    // An actual element in its own shadow tree, above the canvas and below the
+    // body, cannot be suppressed by the site's html::before reset rules.
+    const hostStyles = { all: 'initial', display: 'block', position: 'fixed', inset: '0',
+      width: '100vw', height: '100vh', margin: '0', padding: '0', border: '0',
+      'z-index': '1', 'pointer-events': 'none', visibility: 'visible', opacity: '1' };
+    Object.entries(hostStyles).forEach(([prop, value]) => {
+      if (layer.style.getPropertyValue(prop) !== value) layer.style.setProperty(prop, value, 'important');
+    });
+    const paint = layer.shadowRoot.querySelector('[data-wallpaper-paint]');
+    const bg = currentWallpaper.bgPrimary || '#f7f7f8';
+    const opacity = Math.max(0, Math.min(100, Number(currentWallpaper.opacity) || 0)) / 100;
+    const scrim = withAlpha(bg, 1 - opacity);
+    const url = String(currentWallpaper.url).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const video = currentWallpaper.mediaType === 'video';
+    const image = `linear-gradient(${scrim}, ${scrim})${video ? '' : `, url("${url}")`}`;
+    if (paint.style.backgroundImage !== image) paint.style.backgroundImage = image;
+    paint.style.backgroundColor = video ? 'transparent' : bg;
+    paintWallpaperShells();
+    if (wallpaperLoad.url !== currentWallpaper.url) {
+      const source = currentWallpaper.url;
+      setWallpaperLoadState(source, video ? 'video' : 'loading');
+      if (!video) {
+        const image = new Image();
+        image.onload = () => {
+          if (currentWallpaper.enabled && wallpaperLoad.url === source) setWallpaperLoadState(source, 'ready');
+        };
+        image.onerror = () => {
+          if (currentWallpaper.enabled && wallpaperLoad.url === source) setWallpaperLoadState(source, 'error');
+        };
+        image.src = source;
+      }
+    }
+  }
+
   function generateWallpaperCss() {
     if (!currentWallpaper.enabled || !currentWallpaper.url) return "";
     const bgPrimary = currentWallpaper.bgPrimary || "#f7f7f8";
-    const opacity = Math.max(0, Math.min(100, Number(currentWallpaper.opacity) || 0)) / 100;
-    const scrim = withAlpha(bgPrimary, 1 - opacity);
     const isVideo = currentWallpaper.mediaType === "video";
-    const url = String(currentWallpaper.url).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    // 视频模式：遮罩必须半透明，绝不能铺不透明 bgPrimary（否则会整块盖住视频）
-    const layerBg = isVideo
-      ? `background-color: transparent;
-  background-image: linear-gradient(${scrim}, ${scrim});`
-      : `background-color: ${bgPrimary};
-  background-image: linear-gradient(${scrim}, ${scrim}), url("${url}");
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;`;
     const videoCss = isVideo
       ? `
 /* 视频层(0) < 半透明遮罩(1) < 页面(2) */
@@ -4124,14 +4875,6 @@ html.beauty-gpt-bg #beauty-gpt-bg-video {
   background: #000 !important;
   object-fit: cover !important;
 }
-html.beauty-gpt-bg body {
-  position: relative !important;
-  z-index: 2 !important;
-}
-html.beauty-gpt-bg #beauty-gpt-root {
-  position: relative !important;
-  z-index: 2147483646 !important;
-}
 `
       : `
 html.beauty-gpt-bg #${VIDEO_FRAME_ID},
@@ -4139,16 +4882,27 @@ html.beauty-gpt-bg #beauty-gpt-bg-video {
   display: none !important;
 }
 `;
-    const scrimZ = isVideo ? "1" : "-1";
     return `
-/* 固定视口壁纸：避免画在可滚动容器上导致上下滑动断层 */
-html.beauty-gpt-bg::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: ${scrimZ};
-  pointer-events: none;
-  ${layerBg}
+/* Video(0) < isolated wallpaper/scrim(1) < app body(2). No negative layer. */
+/* The logged-out shell has actual masked spans rather than footer pseudos.
+   Keep this in wallpaper CSS too, for the default-theme + wallpaper case. */
+html.beauty-gpt-bg :is([data-ds-top-chrome], [data-ds-top-chrome] [data-slot="header"] > span[aria-hidden="true"], [data-ds-composer], [data-ds-composer] > span[aria-hidden="true"]) {
+  background: transparent !important;
+  background-image: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  box-shadow: none !important;
+}
+html.beauty-gpt-bg {
+  isolation: isolate !important;
+}
+html.beauty-gpt-bg body {
+  position: relative !important;
+  z-index: 2 !important;
+}
+html.beauty-gpt-bg #beauty-gpt-root {
+  position: relative !important;
+  z-index: 2147483646 !important;
 }
 ${videoCss}
 
@@ -4159,9 +4913,15 @@ html.beauty-gpt-bg body {
 }
 
 html.beauty-gpt-bg #__next,
-html.beauty-gpt-bg #root {
+html.beauty-gpt-bg #root,
+html.beauty-gpt-bg [data-bgpt-wallpaper-shell] {
   background: transparent !important;
   background-color: transparent !important;
+  background-image: none !important;
+}
+html.beauty-gpt-bg [data-bgpt-wallpaper-shell]::before,
+html.beauty-gpt-bg [data-bgpt-wallpaper-shell]::after {
+  background: none !important;
 }
 
 /* 仅清「壳层」透明；勿扫 #thread-bottom > div / bg-token-*，否则会打穿 + 菜单 */
@@ -4169,6 +4929,10 @@ html.beauty-gpt-bg #main,
 html.beauty-gpt-bg main,
 html.beauty-gpt-bg [data-scroll-root],
 html.beauty-gpt-bg #thread,
+html.beauty-gpt-bg .thread-scroll-container,
+html.beauty-gpt-bg main > .bg-surface,
+html.beauty-gpt-bg main > .bg-surface-secondary,
+html.beauty-gpt-bg main > div > .bg-surface:has(.thread-scroll-container),
 html.beauty-gpt-bg .composer-parent,
 html.beauty-gpt-bg #thread-bottom-container,
 html.beauty-gpt-bg #thread-bottom,
@@ -4186,6 +4950,30 @@ html.beauty-gpt-bg #page-header[class*="bg-token"] {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
+}
+
+/* 资料空间 / 图像 / 站点等全页视图的顶栏常位于 main 之外。
+   壁纸模式下清空填充，避免顶部出现一条主题色/白色「垫底」。 */
+/* Match structural chrome before its search input mounts. Do not depend on
+   route hints or observer-added attributes: both arrive after first paint. */
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main > .sticky.bg-surface,
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main > div > .sticky.bg-surface,
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main > header,
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main > [role="banner"],
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main .sticky.bg-surface::before,
+html.beauty-gpt-bg:not(.beauty-gpt-settings) main .sticky.bg-surface::after,
+html.beauty-gpt-bg #main > :has(input[id^="library-search"]),
+html.beauty-gpt-bg main > :has(input[id^="library-search"]),
+html.beauty-gpt-bg :is(header, [role="banner"]):has(input[id^="library-search"]),
+html.beauty-gpt-bg [data-bgpt-page-chrome],
+html.beauty-gpt-bg [data-bgpt-page-chrome]::before,
+html.beauty-gpt-bg [data-bgpt-page-chrome]::after {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* 壁纸模式：彻底隐藏 GPT 原生首页装饰图 */
@@ -4490,6 +5278,15 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     const html = document.documentElement;
     const key = wallpaperKey(options);
     if (key === lastWallpaperKey) {
+      // SPA updates may remove/empty styles without changing the saved settings.
+      if (key !== 'off') {
+        html.classList.add('beauty-gpt-bg');
+        const style = ensureWallpaperStyleEl();
+        if (!style.textContent) style.textContent = generateWallpaperCss();
+      }
+      syncWallpaperShells();
+      if (key !== 'off') ensureWallpaperLayer();
+      clearPageTopChrome();
       // Still ensure video element exists after SPA nukes the DOM
       if (
         key !== "off" &&
@@ -4511,8 +5308,12 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
         mediaType: null,
       };
       html.classList.remove("beauty-gpt-bg");
+      syncWallpaperShells();
+      clearPageTopChrome();
       const el = document.getElementById(WALLPAPER_STYLE_ID);
       if (el) el.textContent = "";
+      document.getElementById(WALLPAPER_LAYER_ID)?.remove();
+      setWallpaperLoadState(null, 'off');
       removeWallpaperVideo();
       return;
     }
@@ -4526,7 +5327,10 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
       mediaType,
     };
     html.classList.add("beauty-gpt-bg");
+    syncWallpaperShells();
     ensureWallpaperStyleEl().textContent = generateWallpaperCss();
+    ensureWallpaperLayer();
+    clearPageTopChrome();
     if (mediaType === "video") {
       ensureWallpaperVideo(options.url);
     } else {
@@ -4709,16 +5513,22 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     const html = document.documentElement;
     if (!vars) {
       html.classList.remove("beauty-gpt-active");
+      document.querySelectorAll('[data-bgpt-composer-action], [data-bgpt-composer-controls]').forEach(el => {
+        el.removeAttribute('data-bgpt-composer-action');
+        el.removeAttribute('data-bgpt-composer-controls');
+      });
       document.querySelectorAll('[data-bgpt-settings-nav], [data-bgpt-settings-surface]').forEach((el) => {
         el.removeAttribute('data-bgpt-settings-nav');
         el.removeAttribute('data-bgpt-settings-surface');
+      });
+      document.querySelectorAll('[data-bgpt-clear-surface], [data-bgpt-search-field], [data-bgpt-search-shell], [data-bgpt-profile-editor]').forEach(el => {
+        ['data-bgpt-clear-surface', 'data-bgpt-search-field', 'data-bgpt-search-shell', 'data-bgpt-profile-editor'].forEach(name => el.removeAttribute(name));
       });
       // 默认主题也要保留壁纸：不在这里强拆 beauty-gpt-bg / video
       const el = document.getElementById(STYLE_ID);
       if (el) el.textContent = "";
       clearInlineThemeStyles();
       clearLegacyInlineStyles();
-      restoreComposerNativeRadius();
       syncColorMode(null);
       paintDomTokens(null);
       // 默认主题若仍开着壁纸，需把壁纸 CSS 写回（上面清空了 style 标签）
@@ -4746,9 +5556,11 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
    * @param {{ mode?: "full"|"light", clear?: boolean }} [options]
    */
   function ensureThemeAlive(vars, options) {
+    // Wallpaper also works with the default theme (vars === null).
+    applyWallpaper(currentWallpaper);
     if (!vars) {
       if (
-        document.querySelector(`[${STYLED_ATTR}]`) ||
+        document.querySelector(`[${STYLED_ATTR}]:not([data-bgpt-wallpaper-shell])`) ||
         document.documentElement.classList.contains("beauty-gpt-active")
       ) {
         applyTheme(null);
@@ -4981,12 +5793,15 @@ html.beauty-gpt-bg [data-turn="user"] .user-message-bubble-color {
     getVarKeys,
     getVarLabels,
     mergeVars,
+    contrastOn,
     generateThemeCss,
     applyTheme,
     applyWallpaper,
+    getWallpaperStatus,
     resolveWallpaperUrl,
     resolveWallpaperMedia,
     ensureThemeAlive,
+    clearPageTopChrome,
     syncRouteHints,
     collectDomDiagnostics,
     isChatStreaming,

@@ -26,7 +26,8 @@ const assert=require('node:assert/strict');
  const composer=await page.evaluate(()=>getComputedStyle(document.querySelector('[data-composer-surface]')).backgroundColor);
  assert.equal(composer,'rgb(255, 255, 255)');
  await page.evaluate(()=>BeautyGPTTheme.applyTheme(null));
- assert.equal(await page.evaluate(()=>document.querySelectorAll('[data-bgpt-inline]').length),0);
+ // Resetting theme colors retains wallpaper-only transparency overrides.
+ assert.equal(await page.evaluate(()=>document.querySelectorAll('[data-bgpt-inline]:not([data-bgpt-wallpaper-shell])').length),0);
  // Logged-in app-shell structure observed on 2026-10-04. Native rules
  // consume the new namespace rather than the legacy --bg-primary aliases.
  await page.setContent(`<style>
@@ -65,10 +66,10 @@ const assert=require('node:assert/strict');
  await page.evaluate(()=>{document.querySelector('aside').insertAdjacentHTML('beforeend','<button>返回应用</button><div data-sidebar-header-search="true"><svg/><input id="settings-search" type="text" placeholder="搜索"></div>')});
  for(const name of ['sakura','midnight']){
   await page.evaluate(v=>BeautyGPTTheme.applyTheme(v),themes[name].vars);
-  const field=await page.evaluate(()=>{const e=document.querySelector('#settings-search'),parent=getComputedStyle(e.parentElement);return{inner:getComputedStyle(e).backgroundColor,bg:parent.backgroundColor,border:parent.boxShadow,radius:parent.borderRadius}});
-  assert.equal(field.inner,'rgba(0, 0, 0, 0)');assert.notEqual(field.bg,'rgba(0, 0, 0, 0)');assert.notEqual(field.border,'none');assert.equal(field.radius,'999px');
+  const field=await page.evaluate(()=>{const e=document.querySelector('#settings-search'),parent=getComputedStyle(e.parentElement);return{inner:getComputedStyle(e).backgroundColor,bg:parent.backgroundColor,border:parent.borderTopWidth,radius:parent.borderRadius}});
+  assert.equal(field.inner,'rgba(0, 0, 0, 0)');assert.notEqual(field.bg,'rgba(0, 0, 0, 0)');assert.equal(field.border,'1px');assert.equal(field.radius,'999px');
   await page.locator('#settings-search').focus();
-  assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('[data-sidebar-header-search]')).outlineStyle),'solid');
+  assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('[data-sidebar-header-search]')).outlineStyle),'none');
  }
  // The footer scrim disappears with wallpaper; the composer and popovers stay solid.
  await page.setContent(`<style>[role="menu"]{background:var(--bg-elevated-primary)}[data-thread-scroll-footer]{background:#000;backdrop-filter:blur(12px)}.pointer-events-none{background:#000;backdrop-filter:blur(12px)}.pointer-events-none::before{content:"";background:linear-gradient(#000,transparent);backdrop-filter:blur(12px)}#thread-bottom-container::before{content:"";background:linear-gradient(#000,transparent)}</style><main><div class="thread-scroll-container"><div aria-hidden="true" class="pointer-events-none sticky bottom-0"><div id="disclaimer-fade" aria-hidden="true" class="pointer-events-none bg-gradient-to-t from-surface" style="background-image:linear-gradient(#000,transparent)"></div></div></div><div data-thread-scroll-footer="true"><div aria-hidden="true" class="pointer-events-none"></div><div><form><div data-composer-body><div class="ProseMirror" contenteditable="true"></div></div></form><div role="menu">Menu</div></div></div><div id="thread-bottom-container"></div></main>`);
@@ -93,6 +94,53 @@ const assert=require('node:assert/strict');
   const values=await page.evaluate(()=>{const c=s=>getComputedStyle(document.querySelector(s));return{bg:c('#tip').backgroundColor,text:c('#tip').color,inner:c('#tip div').backgroundColor,shadow:c('#tip div').boxShadow,description:c('.description').color,key:c('kbd').color,arrow:c('[data-radix-tooltip-arrow]').fill}});
   assert.equal(values.bg,rgb(v.bgSecondary));assert.equal(values.text,rgb(v.textPrimary));assert.equal(values.inner,'rgba(0, 0, 0, 0)');assert.equal(values.shadow,'none');assert.equal(values.description,rgb(v.textSecondary));assert.equal(values.key,rgb(v.textSecondary));assert.equal(values.arrow,rgb(v.bgSecondary));
  }
+ // New app-shell surfaces must reveal wallpaper without clearing message cards.
+ await page.setContent(`<style>.bg-surface{background:#fff}.thread-scroll-container{background:#fff}.bg-user-message{background:#874020;color:white}button[data-testid="composer-speech-button"]{background:#d65b25}</style><main><div class="bg-surface"><div class="thread-scroll-container"><div data-message-author-role="user"><div class="bg-user-message rounded"><div class="whitespace-pre-wrap">Hello</div></div></div><div class="card" style="background:#123">Card</div></div></div><button data-testid="composer-speech-button">Voice</button></main>`);
+ await page.addScriptTag({path:'src/theme-engine.js'});
+ const v=themes.sakura.vars;
+ await page.evaluate(v=>{BeautyGPTTheme.applyTheme(v);BeautyGPTTheme.applyWallpaper({enabled:true,opacity:40,url:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',bgPrimary:v.bgPrimary,mediaType:'image'});BeautyGPTTheme.ensureThemeAlive(v)},v);
+ const newShell=await page.evaluate(()=>{const c=s=>getComputedStyle(document.querySelector(s));return {shell:c('main > .bg-surface').backgroundColor,scroll:c('.thread-scroll-container').backgroundColor,bubble:c('.bg-user-message').backgroundColor,voice:c('[data-testid="composer-speech-button"]').backgroundColor,card:c('.card').backgroundColor}});
+ assert.equal(newShell.shell,'rgba(0, 0, 0, 0)');assert.equal(newShell.scroll,'rgba(0, 0, 0, 0)');assert.equal(newShell.bubble,'rgb(240, 184, 208)');assert.equal(newShell.voice,'rgb(184, 56, 104)');assert.equal(newShell.card,'rgb(17, 34, 51)');
+ // Citation chips must clear hardcoded inner fills without filling outline SVGs.
+ // Plain Radix sliders expose orientation rather than shadcn data-slot names.
+ await page.setContent(`<style>#citation{background:#444;color:#333}#citation span{background:#444;color:#333}#track{background:#ddd}#range{background:#f58038}</style><main><div class="markdown"><a id="citation" data-testid="webpage-citation" href="https://example.com"><span>Codex Reset W…</span><svg fill="none"><path/></svg></a></div></main><div role="dialog"><span dir="ltr" data-orientation="horizontal"><span id="track" data-orientation="horizontal"><span id="range" data-orientation="horizontal"></span></span><span><span role="slider" data-orientation="horizontal" aria-valuenow="3" aria-valuemin="0" aria-valuemax="4"></span></span></span></div>`);
+ await page.addScriptTag({path:'src/theme-engine.js'});
+ for(const name of ['sakura','ocean','midnight']){
+  await page.evaluate(v=>BeautyGPTTheme.applyTheme(v),themes[name].vars);
+  const values=await page.evaluate(()=>{const c=s=>getComputedStyle(document.querySelector(s));return {chip:c('#citation').backgroundColor,label:c('#citation span').color,labelBg:c('#citation span').backgroundColor,fill:c('#citation svg').fill,range:c('#range').backgroundColor,track:c('#track').backgroundColor}});
+  const rgb=h=>`rgb(${parseInt(h.slice(1,3),16)}, ${parseInt(h.slice(3,5),16)}, ${parseInt(h.slice(5,7),16)})`,v=themes[name].vars;
+  assert.equal(values.chip,rgb(v.bgSecondary));assert.equal(values.label,rgb(v.textPrimary));assert.equal(values.labelBg,'rgba(0, 0, 0, 0)');assert.equal(values.fill,'none');assert.equal(values.range,rgb(v.accent));assert.equal(values.track,rgb(v.bgSecondary));
+ }
+ // The new isolated wallpaper layer must retain the video < scrim < app order.
+ // Generate a tiny local WebM; no remote media or camera access is involved.
+ await page.setContent('<style>body{margin:0}main{height:900px}</style><main>Video layer test</main>');
+ await page.addScriptTag({path:'src/theme-engine.js'});
+ const videoResult=await page.evaluate(async v=>{
+  const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#00ff00';ctx.fillRect(0,0,32,32);
+  const stream=canvas.captureStream(10),recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8'}),chunks=[];
+  recorder.ondataavailable=e=>chunks.push(e.data);
+  const stopped=new Promise(resolve=>recorder.onstop=resolve);
+  recorder.start();await new Promise(resolve=>setTimeout(resolve,150));recorder.stop();await stopped;
+  stream.getTracks().forEach(track=>track.stop());
+  const url=URL.createObjectURL(new Blob(chunks,{type:'video/webm'}));
+  BeautyGPTTheme.applyTheme(v);
+  BeautyGPTTheme.applyWallpaper({enabled:true,opacity:40,url,bgPrimary:v.bgPrimary,mediaType:'video'});
+  const video=document.getElementById('beauty-gpt-bg-video');
+  await video.play();
+  const framePresented=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error('No video frame presented')),5000);
+    video.requestVideoFrameCallback((_now,meta)=>{clearTimeout(timer);resolve(meta.presentedFrames>0)});
+  });
+  const layer=document.getElementById('beauty-gpt-bg-layer'),paint=layer.shadowRoot.querySelector('[data-wallpaper-paint]');
+  const result={framePresented,paused:video.paused,videoZ:getComputedStyle(video).zIndex,layerZ:getComputedStyle(layer).zIndex,bodyZ:getComputedStyle(document.body).zIndex,scrimBase:getComputedStyle(paint).backgroundColor,scrim:getComputedStyle(paint).backgroundImage};
+  BeautyGPTTheme.applyWallpaper({enabled:false});URL.revokeObjectURL(url);
+  result.cleaned=!document.getElementById('beauty-gpt-bg-video')&&!document.getElementById('beauty-gpt-bg-layer');
+  return result;
+ },themes.sakura.vars);
+ assert.equal(videoResult.framePresented,true);assert.equal(videoResult.paused,false);
+ assert.equal(videoResult.videoZ,'0');assert.equal(videoResult.layerZ,'1');assert.equal(videoResult.bodyZ,'2');
+ assert.equal(videoResult.scrimBase,'rgba(0, 0, 0, 0)');assert.ok(videoResult.scrim.includes('0.6)'));assert.equal(videoResult.cleaned,true);
  assert.deepEqual(errors,[]);
- await browser.close();console.log('PASS: all preset themes, settings with wallpaper, nested theme scope, text backgrounds, navigation state, new composer, theme reset');
+ await browser.close();console.log('PASS: all preset themes, settings, nested theme scope, citations, sliders, composer, reset and video frame/layer order');
 })().catch(e=>{console.error(e);process.exit(1)});

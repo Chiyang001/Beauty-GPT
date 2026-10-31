@@ -75,7 +75,19 @@
   function syncFabTheme(vars) {
     const host = document.getElementById(HOST_ID);
     if (!host) return;
+    const panelVars = {
+      bgPrimary: '--bgpt-bg-primary', bgSecondary: '--bgpt-bg-secondary',
+      inputBg: '--bgpt-input-bg', textPrimary: '--bgpt-text-primary',
+      textSecondary: '--bgpt-text-secondary', accent: '--bgpt-accent',
+      accentHover: '--bgpt-accent-hover', border: '--bgpt-border',
+    };
+    Object.entries(panelVars).forEach(([key, name]) => {
+      if (vars?.[key]) host.style.setProperty(name, vars[key]);
+      else host.style.removeProperty(name);
+    });
     if (!vars) {
+      host.style.removeProperty('--bgpt-panel-accent-fg');
+      host.style.removeProperty('color-scheme');
       host.style.removeProperty("--bgpt-fab-from");
       host.style.removeProperty("--bgpt-fab-to");
       host.style.removeProperty("--bgpt-fab-fg");
@@ -84,18 +96,12 @@
     }
     const accent = vars.accent || "#e85d8e";
     const hover = vars.accentHover || accent;
-    let fg = "#fff";
-    const hex = String(accent).replace("#", "");
-    if (hex.length === 6) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      fg = luma < 0.55 ? "#fff" : "#1a1a1a";
-    }
+    const fg = Theme.contrastOn(accent);
     host.style.setProperty("--bgpt-fab-from", accent);
     host.style.setProperty("--bgpt-fab-to", hover);
     host.style.setProperty("--bgpt-fab-fg", fg);
+    host.style.setProperty('--bgpt-panel-accent-fg', fg);
+    host.style.colorScheme = document.documentElement.getAttribute('data-bgpt-mode') || 'light';
     host.style.setProperty("--bgpt-fab-shadow", `${accent}66`);
   }
 
@@ -120,7 +126,7 @@
         mediaType: media.mediaType,
         bgPrimary: state.activeVars?.bgPrimary || "#f7f7f8",
       });
-      // 默认主题 vars 为 null：不要 ensureThemeAlive(null)，否则会清掉壁纸
+      // Default-theme wallpaper is maintained by applyWallpaper itself.
       if (state.activeVars) {
         Theme.ensureThemeAlive(state.activeVars);
       }
@@ -169,6 +175,8 @@
       await syncWallpaper();
       await mountUI();
       syncFabTheme(state.activeVars);
+      syncWallpaperControls();
+      document.addEventListener('beauty-gpt-wallpaper-state', () => syncWallpaperControls());
       watchSpa();
       bindStorageListener();
     } catch (err) {
@@ -338,13 +346,20 @@
   }
 
   function customBgHint() {
+    const wallpaper = Theme.getWallpaperStatus();
+    if (!state.bgEnabled) return '背景已关闭。';
+    if (wallpaper.state === 'loading') return '正在加载背景图片…';
+    if (wallpaper.state === 'error') return '背景图片加载失败。请重新选择预设背景或上传有效图片。';
+    if (!wallpaper.enabled) return '当前配色没有背景图片；请选择预设主题或上传自定义背景。';
+    if (wallpaper.opacity === 0) return '背景强度为 0%，图片已隐藏；向右拖动滑条即可显示。';
+    if (wallpaper.state === 'ready') return '背景图片已加载。背景强度越高，图片越明显。';
     if (state.bgCustomMediaType === "video" || state.bgCustomVideoUrl) {
       return "视频背景已启用（静音循环）。上方「未选择任何文件」是选择框重置，不代表没传成功。";
     }
     if (state.bgCustomDataUrl) {
       return "当前自定义：图片背景。也可改传视频（建议 mp4/webm，≤40MB）。";
     }
-    return "预设主题自带背景；也可上传图片或视频。视频请用较小的 mp4/webm（≤40MB）。透明度越高，背景越明显。";
+    return "预设主题自带背景；也可上传图片或视频。视频请用较小的 mp4/webm（≤40MB）。背景强度越高，图片越明显；0% 隐藏图片。";
   }
 
   function buildPanelHtml() {
@@ -406,7 +421,7 @@
               <input type="checkbox" data-bg-enabled ${state.bgEnabled ? "checked" : ""} />
             </label>
             <label class="bgpt-range-row">
-              <span>透明度 <em data-bg-opacity-label>${state.bgOpacity}%</em></span>
+              <span>背景强度 <em data-bg-opacity-label>${state.bgOpacity}%</em></span>
               <input
                 type="range"
                 min="0"
@@ -495,8 +510,17 @@
     }
     left = clamp(left, margin, window.innerWidth - size - margin);
     top = clamp(top, margin, window.innerHeight - size - margin);
-    fab.style.left = `${left}px`;
-    fab.style.top = `${top}px`;
+    // On narrow viewports the bottom-right corner belongs to the composer's
+    // voice/send controls. Keep the draggable theme button clear of that area.
+    document.querySelectorAll('[data-composer-body], [data-composer-surface], [data-mobile-composer]').forEach(surface => {
+      const box = surface.getBoundingClientRect();
+      if (!box.width || !box.height || box.bottom <= 0 || box.top >= window.innerHeight) return;
+      if (left < box.right + 8 && left + size > box.left - 8 && top < box.bottom + 8 && top + size > box.top - 8) {
+        top = clamp(box.top - size - 12, margin, window.innerHeight - size - margin);
+      }
+    });
+    if (fab.style.left !== `${left}px`) fab.style.left = `${left}px`;
+    if (fab.style.top !== `${top}px`) fab.style.top = `${top}px`;
     fab.style.right = "auto";
     fab.style.bottom = "auto";
   }
@@ -507,13 +531,13 @@
 
   function placePanelNearFab(panel, fab) {
     const fabRect = fab.getBoundingClientRect();
-    const panelW = Math.min(340, window.innerWidth - 24);
-    const panelH = Math.min(560, window.innerHeight - 32);
+    const panelW = panel.offsetWidth || Math.min(340, window.innerWidth - 24);
+    const panelH = panel.offsetHeight || Math.min(620, window.innerHeight - 32);
     let left = fabRect.right - panelW;
     let top = fabRect.top - panelH - 12;
     if (top < 12) top = fabRect.bottom + 12;
     left = clamp(left, 12, window.innerWidth - panelW - 12);
-    top = clamp(top, 12, window.innerHeight - Math.min(panelH, window.innerHeight - 24));
+    top = clamp(top, 12, window.innerHeight - panelH - 12);
     panel.style.left = `${left}px`;
     panel.style.top = `${top}px`;
   }
@@ -563,6 +587,7 @@
         /* ignore */
       }
       if (moved) {
+        placeFab(fab, {left:parseFloat(fab.style.left),top:parseFloat(fab.style.top)});
         const pos = {
           left: parseFloat(fab.style.left),
           top: parseFloat(fab.style.top),
@@ -711,7 +736,7 @@
     opacityInput?.addEventListener("change", async () => {
       state.bgOpacity = Number(opacityInput.value) || 0;
       await Theme.saveWallpaperSettings({ opacity: state.bgOpacity });
-      setStatus(panel, `背景透明度：${state.bgOpacity}%`);
+      setStatus(panel, `背景强度：${state.bgOpacity}%`);
     });
 
     useCustomInput?.addEventListener("change", async () => {
@@ -901,6 +926,28 @@
       for (let i = 0; i < mutations.length; i++) {
         const m = mutations[i];
         if (isIgnoredNode(m.target)) continue;
+        if (m.type === 'attributes') {
+          const target = m.target;
+          if (target.matches('[data-bgpt-composer-controls], [data-bgpt-clear-surface], [data-bgpt-search-field], [data-bgpt-search-shell]')) {
+            if (m.oldValue !== target.getAttribute(m.attributeName)) {
+              const style = getComputedStyle(target);
+              if (!target.hasAttribute('data-bgpt-search-shell') &&
+                  ((style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)') || style.backgroundImage !== 'none')) return true;
+              if (target.matches('[data-bgpt-search-field], [data-bgpt-search-shell]') &&
+                  (style.outlineStyle !== 'none' || style.boxShadow !== 'none')) return true;
+            }
+            continue;
+          }
+          if (!state.bgEnabled || !Theme.getWallpaperStatus().enabled) continue;
+          if (target !== document.documentElement && target !== document.body && !target.hasAttribute('data-bgpt-wallpaper-shell') && !target.hasAttribute('data-bgpt-page-chrome')) continue;
+          if (m.oldValue === target.getAttribute(m.attributeName)) continue;
+          if (!document.documentElement.classList.contains('beauty-gpt-bg')) return true;
+          // Ignore our own style writes once the surface is transparent. Only
+          // native opaque repaints need another pass, avoiding observer loops.
+          const bg = getComputedStyle(target).backgroundColor;
+          if (bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') return true;
+          continue;
+        }
         const added = m.addedNodes;
         for (let j = 0; j < added.length; j++) {
           const n = added[j];
@@ -910,6 +957,7 @@
         const removed = m.removedNodes;
         for (let j = 0; j < removed.length; j++) {
           const n = removed[j];
+          if (n.nodeType === 1 && ['beauty-gpt-theme', 'beauty-gpt-wallpaper', 'beauty-gpt-root', 'beauty-gpt-bg-layer', 'beauty-gpt-bg-video', 'beauty-gpt-bg-frame'].includes(n.id)) return true;
           if (n.nodeType === 1 && !isIgnoredNode(n)) return true;
         }
       }
@@ -929,12 +977,16 @@
         // Light while streaming; one full pass when streaming ends; otherwise light
         const mode = streaming ? "light" : wasStreaming ? "full" : "light";
         wasStreaming = streaming;
-        if (state.activeVars) {
-          Theme.ensureThemeAlive(state.activeVars, { mode });
-        }
+        Theme.ensureThemeAlive(state.activeVars, { mode });
         // Do NOT syncWallpaper here — async resolve + CSS rewrite on every token
         if (!document.getElementById(HOST_ID)) {
           mountUI();
+        } else {
+          const ui = document.getElementById(HOST_ID)._bgpt;
+          if (ui?.fab && !ui.fab.classList.contains('is-dragging')) {
+            placeFab(ui.fab, {left:parseFloat(ui.fab.style.left),top:parseFloat(ui.fab.style.top)});
+            if (state.panelOpen) placePanelNearFab(ui.panel, ui.fab);
+          }
         }
       } catch (err) {
         const msg = err?.message || String(err);
@@ -950,6 +1002,9 @@
         return;
       }
       if (!mutationMatters(mutations)) return;
+      // Chrome must be repaired in this mutation microtask, before the next
+      // paint. The expensive general theme pass below can remain debounced.
+      Theme.clearPageTopChrome();
       if (timer) return;
       const streamingHint =
         typeof Theme.isChatStreaming === "function" && Theme.isChatStreaming();
@@ -968,6 +1023,9 @@
       childList: true,
       subtree: true,
       characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+      attributeOldValue: true,
     });
 
     // Soft re-apply on history navigation (ChatGPT SPA)
