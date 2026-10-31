@@ -1271,6 +1271,11 @@ html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) :is([data-w-
 html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component] :is(span, svg) {
   color: inherit !important;
 }
+/* Native primary/voice paint lives on ::before, independently of the button.
+   Inherit the themed fill while preserving native focus/hover geometry. */
+html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component]::before {
+  background: inherit !important;
+}
 html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][data-variant="ghost"]:hover,
 html.beauty-gpt-active:has([data-mobile-composer][data-logged-out]) [data-w-component][aria-pressed="true"] {
   background: ${hoverSurface} !important;

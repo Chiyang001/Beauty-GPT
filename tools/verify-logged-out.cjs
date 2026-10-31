@@ -14,6 +14,7 @@ const fixture=`<style>
  [data-header-wordmark]{color:white}[data-header-wordmark] span{color:white}
  [data-w-component]{padding:10px;border:1px solid #888;border-radius:24px;background:#303030;color:white;text-decoration:none}
  [data-variant=primary]{background:white;color:#111}[data-variant=secondary]{background:#212121;color:white}
+ [data-variant=primary]::before{content:"";background:white}[data-start-voice]::before{content:"";background:#3566f0}
  main{height:230px}footer{position:relative;padding:12px;color:white}
  [data-ds-composer]>span[aria-hidden]{position:absolute;left:0;right:0;bottom:0;height:48px;background:black;pointer-events:none}
  [data-mobile-landing-heading]{text-align:center;font-size:24px}[data-mobile-landing-heading] span{color:white}
@@ -58,6 +59,7 @@ const fixture=`<style>
    assert.equal(await css('[data-privacy-legal-notice]>span','color'),rgb(v.textSecondary));
    assert.equal(await css('[data-privacy-legal-notice] a','color'),rgb(v.textPrimary));
    assert.equal(await css('[data-start-voice]','background-color'),rgb(v.accent));
+   for(const sel of ['[data-start-voice]','[data-variant=primary]'])assert.equal(await page.locator(sel).first().evaluate(e=>getComputedStyle(e,'::before').backgroundColor),rgb(v.accent),id+' native button paint layer');
    const foreground=await page.evaluate(c=>BeautyGPTTheme.contrastOn(c),v.accent);
    assert.equal(await css('[data-start-voice] svg','color'),rgb(foreground));
    assert.equal(await css('[data-empty-composer-help]','background-color'),rgb(v.bgSecondary));
